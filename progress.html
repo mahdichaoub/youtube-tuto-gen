@@ -28,7 +28,13 @@
     .title { font-size: 20px; font-weight: 700; }
     .title span { color: #6366f1; }
     .subtitle { font-size: 12px; color: #555; margin-top: 3px; }
-    .reset-btn {
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .reset-btn, .export-btn, .import-btn {
       background: transparent;
       border: 1px solid #2a2a2a;
       color: #555;
@@ -37,10 +43,35 @@
       cursor: pointer;
       font-size: 11px;
       white-space: nowrap;
-      flex-shrink: 0;
       transition: all 0.15s;
     }
     .reset-btn:hover { border-color: #444; color: #999; }
+    .export-btn:hover { border-color: #6366f144; color: #818cf8; }
+    .import-btn:hover { border-color: #22c55e44; color: #22c55e; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #e5e5e5;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: #22c55e44; color: #22c55e; }
+    .toast.error   { border-color: #ef444444; color: #f87171; }
+
+    /* ── Last saved ── */
+    .saved-at { font-size: 10px; color: #2a2a2a; margin-top: 5px; }
 
     /* ── Overall Progress ── */
     .overall {
@@ -189,6 +220,7 @@
     .tag-us3 { background: #1a0f1a; color: #e879f9; border: 1px solid #d946ef22; }
     .tag-us4 { background: #0f1a1a; color: #34d399; border: 1px solid #10b98122; }
     .tag-us5 { background: #1a1000; color: #fb923c; border: 1px solid #f9731622; }
+    .tag-us6 { background: #1a0a0a; color: #f87171; border: 1px solid #ef444422; }
 
     /* ── MVP Gate ── */
     .mvp-gate {
@@ -234,6 +266,67 @@
     }
     .phase-header.open .chevron { transform: rotate(90deg); }
 
+    /* ── Speckit Pipeline ── */
+    .speckit-section {
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin-bottom: 24px;
+    }
+    .speckit-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #444;
+      margin-bottom: 18px;
+    }
+    .speckit-flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+      row-gap: 10px;
+    }
+    .sk-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .sk-node {
+      font-size: 10px;
+      font-weight: 700;
+      font-family: monospace;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #222;
+      background: #161616;
+      color: #444;
+      white-space: nowrap;
+      cursor: default;
+      transition: all 0.15s;
+    }
+    .sk-node.done  { background: #0d2218; border-color: #22c55e44; color: #22c55e; }
+    .sk-node.active { background: #1e1b4b; border-color: #6366f144; color: #818cf8; box-shadow: 0 0 10px #6366f122; }
+    .sk-label {
+      font-size: 9px;
+      color: #333;
+      letter-spacing: 0.3px;
+    }
+    .sk-label.done   { color: #22c55e66; }
+    .sk-label.active { color: #6366f188; }
+    .sk-arrow {
+      font-size: 14px;
+      color: #222;
+      padding: 0 4px;
+      flex-shrink: 0;
+      margin-bottom: 14px; /* align with node center */
+    }
+    .sk-arrow.done { color: #22c55e44; }
+
     /* ── Checkpoint Banner ── */
     .checkpoint {
       margin: 0 18px 10px;
@@ -246,6 +339,16 @@
       line-height: 1.5;
     }
     .checkpoint::before { content: "✦ Checkpoint: "; font-weight: 700; }
+
+    /* ── Section divider inside phase body ── */
+    .task-section-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #2a2a2a;
+      padding: 10px 18px 4px;
+    }
   </style>
 </head>
 <body>
@@ -254,153 +357,263 @@
   <div class="header">
     <div>
       <div class="title">LearnAgent <span>MVP</span></div>
-      <div class="subtitle">002-learnagent-pipeline-build · 45 tasks · Phases 1–3 ship the idea · click to toggle</div>
+      <div class="subtitle">002-learnagent-pipeline-build · 54 tasks · Phases 1–3 ship the idea · click to toggle</div>
     </div>
-    <button class="reset-btn" onclick="resetAll()">↺ Reset</button>
+    <div class="header-actions">
+      <button class="import-btn" onclick="importProgress()">↑ Import</button>
+      <button class="export-btn" onclick="exportProgress()">↓ Export</button>
+      <button class="reset-btn" onclick="resetAll()">↺ Reset</button>
+    </div>
   </div>
+  <div class="saved-at" id="saved-at"></div>
 
   <div class="overall">
     <div class="overall-pct" id="overall-pct">0%</div>
     <div class="overall-right">
       <div class="overall-label">Overall Progress</div>
       <div class="bar-track"><div class="bar-fill" id="overall-fill" style="width:0%"></div></div>
-      <div class="overall-count" id="overall-count">0 / 45 tasks complete</div>
+      <div class="overall-count" id="overall-count">0 / 54 tasks complete</div>
     </div>
+  </div>
+
+  <!-- Speckit Pipeline -->
+  <div class="speckit-section">
+    <div class="speckit-title">Speckit Pipeline</div>
+    <div class="speckit-flow" id="speckit-flow"></div>
   </div>
 
   <div id="phases"></div>
 
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
+// MVP_PHASE_IDS: phases that must ship to test the idea
+const MVP_PHASE_IDS = new Set(["p1", "p2", "p3"]);
+
 const PHASES = [
   {
     id: "p1",
     name: "Phase 1 — Setup",
-    meta: "Environment & SDK clients",
+    meta: "Packages, env vars, Supadata client",
     icon: "⚙️",
-    checkpoint: "Packages installed, env vars added, client singletons created.",
+    checkpoint: "npm install succeeds; ANTHROPIC_API_KEY + SUPADATA_API_KEY + ENCRYPTION_KEY in env.example; Supadata client singleton created.",
     tasks: [
-      { id:"T001", parallel:false, story:null, desc:"Add @anthropic-ai/sdk and recharts via pnpm add; verify in package.json" },
-      { id:"T002", parallel:false, story:null, desc:"Add ANTHROPIC_API_KEY, SUPADATA_API_KEY, RAPIDAPI_KEY to env.example" },
-      { id:"T003", parallel:true,  story:null, desc:"Create src/lib/anthropic/client.ts — Anthropic singleton + MODEL constant" },
-      { id:"T004", parallel:true,  story:null, desc:"Create src/lib/supadata/client.ts — fetchTranscript() with RapidAPI fallback" },
+      { id:"T001", parallel:false, story:null, desc:"Install packages via npm install: ai @ai-sdk/anthropic @ai-sdk/openai @ai-sdk/google @ai-sdk/groq @ai-sdk/mistral @openrouter/ai-sdk-provider recharts — verify all in package.json; confirm @anthropic-ai/sdk is NOT added (Vercel AI SDK wraps it)" },
+      { id:"T002", parallel:false, story:null, desc:"Add env var placeholders to env.example: ANTHROPIC_API_KEY, SUPADATA_API_KEY, RAPIDAPI_KEY, ENCRYPTION_KEY (comment: '32-byte hex — generate with: openssl rand -hex 32')" },
+      { id:"T003", parallel:true,  story:null, desc:"Create src/lib/supadata/client.ts — export fetchTranscript(videoId) calling Supadata REST API with x-api-key header; on 404/429 retry once with RapidAPI fallback; throws { code: 'transcript_unavailable' } if both fail" },
     ]
   },
   {
     id: "p2",
     name: "Phase 2 — Foundational",
-    meta: "Blocking prerequisites — schema, emitter, URL utils",
+    meta: "7 DB tables, URL validator, SSE emitter, model abstraction layer — blocks all user stories",
     icon: "🗄️",
-    checkpoint: "db:push succeeds; reports, report_sections, tasks, streaks tables exist in Drizzle Studio.",
+    checkpoint: "npm run db:push succeeds; 7 tables visible in Drizzle Studio (reports, report_sections, tasks, streaks, user_model_config, user_api_keys, report_cost_log); model abstraction layer complete; test row inserts into reports.",
     tasks: [
-      { id:"T005", parallel:false, story:null, desc:"Create src/lib/validate-url.ts — extractVideoId() for all YouTube URL formats" },
-      { id:"T006", parallel:false, story:null, desc:"Create src/lib/pipeline-emitter.ts — Map<reportId, EventEmitter> + PipelineEvent types" },
-      { id:"T007", parallel:false, story:null, desc:"Add reports table to schema.ts (uuid PK, userId FK, status, isShared, etc.)" },
-      { id:"T008", parallel:false, story:null, desc:"Add report_sections table to schema.ts (reportId FK, sectionType, contentJson)" },
-      { id:"T009", parallel:false, story:null, desc:"Add tasks table to schema.ts (reportId FK, userId FK, scope, completed, completedAt)" },
-      { id:"T010", parallel:false, story:null, desc:"Add streaks table to schema.ts (userId UNIQUE, currentStreak, longestStreak, lastActiveDate)" },
-      { id:"T011", parallel:false, story:null, desc:"Run db:push; open Drizzle Studio and confirm all 4 tables exist with correct columns" },
+      { id:"T004", parallel:false, story:null, desc:"Create src/lib/validate-url.ts — export extractVideoId(url) parsing all YouTube URL formats (watch?v=, youtu.be/, embed/, shorts/) → 11-char ID or null" },
+      { id:"T005", parallel:false, story:null, desc:"Create src/lib/pipeline-emitter.ts — Map<reportId, EventEmitter>; export getEmitter(), removeEmitter(), PipelineEvent union type including new 'warning' event type for model fallback" },
+      { id:"T006", parallel:false, story:null, desc:"Extend schema.ts: reports table (uuid PK, userId text FK, videoId, videoUrl, title, topicCategory, estimatedDifficulty, projectContext, status, isShared, timestamps; indexes on userId + createdAt)" },
+      { id:"T007", parallel:false, story:null, desc:"Extend schema.ts: report_sections table (reportId FK, sectionType, contentJson jsonb; index on reportId)" },
+      { id:"T008", parallel:false, story:null, desc:"Extend schema.ts: tasks table (reportId FK, userId text FK, label, scope today|week|month, completed bool, completedAt nullable; indexes on userId, reportId, completedAt)" },
+      { id:"T009", parallel:false, story:null, desc:"Extend schema.ts: streaks table (userId UNIQUE text FK, currentStreak, longestStreak, lastActiveDate date, updatedAt)" },
+      { id:"T010", parallel:false, story:null, desc:"Extend schema.ts: userModelConfig table (userId UNIQUE FK, primaryProvider, primaryModel, fallbackProvider, fallbackModel, dailyCostLimitUsd default 5.00, timeoutMs default 30000, timestamps)" },
+      { id:"T011", parallel:false, story:null, desc:"Extend schema.ts: userApiKeys table (userId FK, provider, keyHash AES-256-GCM encrypted; UNIQUE on (userId, provider))" },
+      { id:"T012", parallel:false, story:null, desc:"Extend schema.ts: reportCostLog table (userId FK, reportId FK, provider, model, inputTokens, outputTokens, estimatedUsd; indexes on userId + reportId)" },
+      { id:"T013", parallel:true,  story:null, desc:"Create src/lib/models/registry.ts — export PROVIDERS, MODEL_REGISTRY (anthropic/openai/google/groq/mistral/openrouter models), COST_RATES per model, DEFAULT_PRIMARY = { provider: 'anthropic', model: 'claude-sonnet-4-6' }" },
+      { id:"T014", parallel:true,  story:null, desc:"Create src/lib/models/call.ts — export generateWithFallback(primary, fallback, config, prompt, maxTokens): checks daily cost limit → calls primary via generateText → on timeout/API error falls back → inserts into reportCostLog → returns { text, usedFallback }" },
+      { id:"T015", parallel:false, story:null, desc:"Create src/lib/models/client.ts — export loadUserModelConfig(userId) building LanguageModel instances from DB config + decrypted API keys; defaults to anthropic claude-sonnet-4-6 if no row; export encryptApiKey() + decryptApiKey() using AES-256-GCM" },
+      { id:"T016", parallel:false, story:null, desc:"Run npm run db:push; open Drizzle Studio at localhost:4983; confirm all 7 tables exist with correct columns; insert + read test row in reports" },
     ]
   },
   {
     id: "p3",
     name: "Phase 3 — User Story 1",
-    meta: "Submit a video → get a project-specific action plan (P1 MVP)",
+    meta: "YouTube URL + project context → action plan in <90s (MVP)",
     icon: "🤖",
-    checkpoint: "POST /api/analyze with real URL + project_context returns complete 5-section report in <90s.",
+    checkpoint: "POST real URL + project_context → SSE stream → complete 5-section report in <90s; action plan is specific (not generic); zero internal terms in UI.",
     tasks: [
-      { id:"T012", parallel:true,  story:"US1", desc:"Create src/agents/fetcher.ts — runFetcher() → FetcherOutput contract" },
-      { id:"T013", parallel:true,  story:"US1", desc:"Create src/agents/analyst.ts — runAnalyst() → AnalystOutput (all fields validated)" },
-      { id:"T014", parallel:true,  story:"US1", desc:"Create src/agents/teacher.ts — runTeacher() → markdown with required headings" },
-      { id:"T015", parallel:false, story:"US1", desc:"Create src/agents/action.ts — runAction() receives projectContext ONLY here; validates array lengths" },
-      { id:"T016", parallel:false, story:"US1", desc:"Create src/agents/orchestrator.ts — sequential pipeline, SSE events, DB writes, error handling" },
-      { id:"T017", parallel:false, story:"US1", desc:"Create src/app/api/analyze/route.ts — POST: auth, validate, fire-and-forget pipeline, return 202" },
-      { id:"T018", parallel:false, story:"US1", desc:"Create src/app/api/analyze/[id]/stream/route.ts — SSE GET stream with abort handling" },
-      { id:"T019", parallel:false, story:"US1", desc:"Create src/app/api/reports/[id]/route.ts — GET with sections + tasks join" },
-      { id:"T020", parallel:true,  story:"US1", desc:"Create src/components/report/ConceptTab.tsx" },
-      { id:"T021", parallel:true,  story:"US1", desc:"Create src/components/report/HighlightsTab.tsx" },
-      { id:"T022", parallel:true,  story:"US1", desc:"Create src/components/report/ModelsTab.tsx" },
-      { id:"T023", parallel:true,  story:"US1", desc:"Create src/components/report/ExamplesTab.tsx" },
-      { id:"T024", parallel:true,  story:"US1", desc:"Create src/components/report/ActionPlanTab.tsx — task list with placeholder checked prop" },
-      { id:"T025", parallel:false, story:"US1", desc:"Create src/app/(app)/home/page.tsx — URL input + project_context form + recent reports" },
-      { id:"T026", parallel:false, story:"US1", desc:"Create src/app/(app)/process/[id]/page.tsx — SSE progress + auto-navigate on done" },
-      { id:"T027", parallel:false, story:"US1", desc:"Create src/app/(app)/report/[id]/page.tsx — 5-tab report view, Action Plan tab first" },
+      { id:"T017", parallel:true,  story:"US1", desc:"Create src/agents/fetcher.ts — runFetcher(videoUrl) → FetcherOutput; calls fetchTranscript via extractVideoId; no AI call; throws transcript_unavailable" },
+      { id:"T018", parallel:true,  story:"US1", desc:"Create src/agents/analyst.ts — runAnalyst(fetcherOutput, modelConfig) → AnalystOutput; calls generateWithFallback with agentName:'analyst'; validates all contract fields; returns { ...parsed, usedFallback }" },
+      { id:"T019", parallel:true,  story:"US1", desc:"Create src/agents/teacher.ts — runTeacher(fetcherOutput, analystOutput, modelConfig) → { markdown, usedFallback }; validates both required headings present" },
+      { id:"T020", parallel:false, story:"US1", desc:"Create src/agents/action.ts — runAction(teacherMd, analystOutput, projectContext, modelConfig) → { data: ActionOutput, usedFallback }; projectContext passed ONLY here; validates today[3], week[3], metrics[3], challenge string" },
+      { id:"T021", parallel:false, story:"US1", desc:"Create src/agents/orchestrator.ts — loadUserModelConfig once; sequential pipeline with SSE events at each stage; emits warning on usedFallback; DB writes; error → failed status + error event" },
+      { id:"T022", parallel:false, story:"US1", desc:"Create src/app/api/analyze/route.ts — POST: auth + extractVideoId + project_context ≥10 chars + 409 if in-flight + insert reports row + fire-and-forget runPipeline + 202" },
+      { id:"T023", parallel:false, story:"US1", desc:"Create src/app/api/analyze/[id]/stream/route.ts — SSE GET; auth + userId ownership check; if status=complete emit done immediately; otherwise subscribe to emitter; pass through warning events; close on done/error" },
+      { id:"T024", parallel:false, story:"US1", desc:"Create src/app/api/reports/[id]/route.ts — GET: auth + userId guard; join reportSections + tasks; return full report per api-reports.md contract" },
+      { id:"T025", parallel:true,  story:"US1", desc:"Create src/components/report/ConceptTab.tsx — shadcn Card with core_concept heading + explanation body" },
+      { id:"T026", parallel:true,  story:"US1", desc:"Create src/components/report/HighlightsTab.tsx — shadcn Card with numbered list of 5–7 highlights" },
+      { id:"T027", parallel:true,  story:"US1", desc:"Create src/components/report/ModelsTab.tsx — shadcn Card with bold name + description for each mental model" },
+      { id:"T028", parallel:true,  story:"US1", desc:"Create src/components/report/ExamplesTab.tsx — shadcn Card with bulleted list of real examples from the video" },
+      { id:"T029", parallel:true,  story:"US1", desc:"Create src/components/report/ActionPlanTab.tsx — Do Today (3), This Week (3), 30-Day Challenge (1), Resources, Metrics (3); task items with placeholder checked prop; project context label above plan" },
+      { id:"T030", parallel:false, story:"US1", desc:"Create src/app/(app)/home/page.tsx — URL input + project context textarea (≥10 chars); POST /api/analyze → navigate to /process/[id]; 409 shows friendly message; recent report cards from GET /api/reports?limit=5" },
+      { id:"T031", parallel:false, story:"US1", desc:"Create src/app/(app)/process/[id]/page.tsx — EventSource SSE; 5 friendly progress steps from sse-labels map; inline warning toast on fallback; auto-nav on done; friendly error + retry on error event" },
+      { id:"T032", parallel:false, story:"US1", desc:"Create src/app/(app)/report/[id]/page.tsx — server component; 5 tabs (Action Plan first); passes sections to tab components; no internal terms in any visible text" },
     ]
   },
   {
     id: "p4",
     name: "Phase 4 — User Story 2",
-    meta: "Mark tasks complete and maintain a learning streak (P2)",
+    meta: "Task completion + learning streak (Post-MVP)",
     icon: "🔥",
-    checkpoint: "Task completion persists across sessions; streak counter in header updates on toggle.",
+    checkpoint: "Task completion persists across sessions; streak counter in header updates live on toggle.",
     tasks: [
-      { id:"T028", parallel:false, story:"US2", desc:"Create src/app/api/tasks/[id]/route.ts — PATCH toggle with streak algorithm" },
-      { id:"T029", parallel:false, story:"US2", desc:"Create src/app/api/streak/route.ts — GET current user streak" },
-      { id:"T030", parallel:false, story:"US2", desc:"Update ActionPlanTab.tsx — wire checkboxes to PATCH /api/tasks/[id] + onTaskToggle prop" },
-      { id:"T031", parallel:false, story:"US2", desc:"Update report/[id]/page.tsx — client wrapper with streakCount state" },
-      { id:"T032", parallel:false, story:"US2", desc:"Create src/contexts/StreakContext.tsx — provider + 🔥 header display" },
+      { id:"T033", parallel:false, story:"US2", desc:"Create src/app/api/tasks/[id]/route.ts — PATCH toggle completed; set completedAt; streak upsert algorithm (today=no change, yesterday=increment, older=reset to 1); return streak in response" },
+      { id:"T034", parallel:false, story:"US2", desc:"Create src/app/api/streak/route.ts — GET current user streak; return { currentStreak:0, longestStreak:0, lastActiveDate:null } if no row" },
+      { id:"T035", parallel:false, story:"US2", desc:"Update ActionPlanTab.tsx — wire checkboxes to PATCH /api/tasks/[id]; strikethrough on complete; onTaskToggle(taskId, newStreak) prop" },
+      { id:"T036", parallel:false, story:"US2", desc:"Update report/[id]/page.tsx — client wrapper; streakCount state from GET /api/streak; pass onTaskToggle to ActionPlanTab" },
+      { id:"T037", parallel:false, story:"US2", desc:"Create src/contexts/StreakContext.tsx — provider + 🔥 N header display in (app)/layout.tsx; fetches initial value on mount; updates from onTaskToggle" },
     ]
   },
   {
     id: "p5",
     name: "Phase 5 — User Story 3",
-    meta: "Share a report and export the action plan (P3)",
+    meta: "Share reports + export action plan (Post-MVP)",
     icon: "🔗",
-    checkpoint: "Share link works unauthenticated; 404 when disabled; Markdown copy produces valid output.",
+    checkpoint: "Share link works unauthenticated; 404 when disabled; Markdown copy is valid.",
     tasks: [
-      { id:"T033", parallel:true,  story:"US3", desc:"Create src/app/api/reports/[id]/share/route.ts — POST toggle isShared" },
-      { id:"T034", parallel:true,  story:"US3", desc:"Create src/app/share/[id]/page.tsx — public read-only report with OG tags" },
-      { id:"T035", parallel:false, story:"US3", desc:"Update report/[id]/page.tsx — Share button, Disable sharing, Copy as Markdown" },
+      { id:"T038", parallel:true,  story:"US3", desc:"Create src/app/api/reports/[id]/share/route.ts — POST toggle isShared boolean; auth + userId guard; return { id, isShared }" },
+      { id:"T039", parallel:true,  story:"US3", desc:"Create src/app/share/[id]/page.tsx — no auth; isShared=true guard (only bypass of userId filter); OG meta tags; read-only render of all 5 sections; no internal terms" },
+      { id:"T040", parallel:false, story:"US3", desc:"Update report/[id]/page.tsx — Share/Disable buttons calling POST /api/reports/[id]/share; Copy as Markdown from actions.markdown" },
     ]
   },
   {
     id: "p6",
     name: "Phase 6 — User Story 4",
-    meta: "Browse and search past reports (P4)",
+    meta: "Searchable report library (Post-MVP)",
     icon: "📚",
-    checkpoint: "Searchable library works with real data; empty state renders for new accounts.",
+    checkpoint: "Library shows real reports most-recent-first; search filters without reload; empty state correct.",
     tasks: [
-      { id:"T036", parallel:true,  story:"US4", desc:"Create src/app/api/reports/route.ts — GET with pagination + ILIKE search" },
-      { id:"T037", parallel:true,  story:"US4", desc:"Create src/components/library/ReportCard.tsx" },
-      { id:"T038", parallel:false, story:"US4", desc:"Create src/app/(app)/library/page.tsx — debounced search + ReportCard list + empty state" },
+      { id:"T041", parallel:true,  story:"US4", desc:"Create src/app/api/reports/route.ts — GET list; ILIKE search on title + topicCategory; userId guard; pagination; order by createdAt DESC" },
+      { id:"T042", parallel:true,  story:"US4", desc:"Create src/components/library/ReportCard.tsx — title, topicCategory badge, estimatedDifficulty badge, date, link to /report/[id]" },
+      { id:"T043", parallel:false, story:"US4", desc:"Create src/app/(app)/library/page.tsx — debounced search 300ms; ReportCard list; empty state with /home CTA for new users; 'no results' for non-matching search" },
     ]
   },
   {
     id: "p7",
     name: "Phase 7 — User Story 5",
-    meta: "Progress dashboard with real data (P5)",
+    meta: "Progress dashboard with real data (Post-MVP)",
     icon: "📊",
-    checkpoint: "All four metrics show real data; chart renders; empty state for new users.",
+    checkpoint: "All 4 metrics show real data; Recharts chart renders; empty state CTA for new users.",
     tasks: [
-      { id:"T039", parallel:true,  story:"US5", desc:"Create src/components/dashboard/StatsCards.tsx — streak, totalReports, totalTasksCompleted" },
-      { id:"T040", parallel:true,  story:"US5", desc:"Create src/components/dashboard/ActivityChart.tsx — 30-day Recharts BarChart" },
-      { id:"T041", parallel:false, story:"US5", desc:"Create src/app/(app)/progress/page.tsx — server component with real DB queries" },
+      { id:"T044", parallel:true,  story:"US5", desc:"Create src/components/dashboard/StatsCards.tsx — streak, totalReports, totalTasksCompleted tiles; empty state CTA if all zeros" },
+      { id:"T045", parallel:true,  story:"US5", desc:"Create src/components/dashboard/ActivityChart.tsx — 30-day Recharts BarChart; empty state if all values are zero" },
+      { id:"T046", parallel:false, story:"US5", desc:"Create src/app/(app)/progress/page.tsx — server component; real DB queries for streak, report count, task count, 30-day chart data; full empty state for new users" },
     ]
   },
   {
     id: "p8",
-    name: "Phase 8 — Polish",
-    meta: "Shared constants, generation banner, terminology audit, E2E validation",
-    icon: "✨",
-    checkpoint: "Full end-to-end pass against quickstart.md; all 10 exit conditions met.",
+    name: "Phase 8 — User Story 6",
+    meta: "Configure AI model provider + API keys (Post-MVP)",
+    icon: "🔑",
+    checkpoint: "Config saves; connection test works; cost log records correct provider after a report generation.",
     tasks: [
-      { id:"T042", parallel:false, story:null, desc:"Create src/lib/sse-labels.ts — STAGE_LABELS + STAGE_ORDER constants" },
-      { id:"T043", parallel:true,  story:null, desc:"Create src/components/GenerationBanner.tsx — persistent top banner + GenerationContext" },
-      { id:"T044", parallel:false, story:null, desc:"Audit all UI strings for internal terms; replace with STAGE_LABELS user-friendly text" },
-      { id:"T045", parallel:false, story:null, desc:"Run full quickstart.md E2E checklist; verify all phase exit conditions pass" },
+      { id:"T047", parallel:true,  story:"US6", desc:"Create src/app/api/settings/models/route.ts — GET returns current config + savedProviders (keys masked last 4 chars); POST upserts userModelConfig; defaults returned if no row" },
+      { id:"T048", parallel:true,  story:"US6", desc:"Create src/app/api/settings/models/keys/route.ts — POST encrypts + upserts API key; DELETE removes key + clears related config fields; returns masked key" },
+      { id:"T049", parallel:true,  story:"US6", desc:"Create src/app/api/settings/models/test/route.ts — POST builds LanguageModel for provider; calls generateText with 'Reply with: ok'; returns { ok, error }; never logs or persists test key" },
+      { id:"T050", parallel:false, story:"US6", desc:"Create src/app/(app)/settings/models/page.tsx — Primary Model section (provider + model dropdowns, API key input); Fallback Model section; Fallback Triggers (timeout, daily cost limit); Test Connection + Save Settings + Delete Key buttons" },
+    ]
+  },
+  {
+    id: "p9",
+    name: "Phase 9 — Polish",
+    meta: "SSE labels, generation banner, terminology audit, E2E (Post-MVP)",
+    icon: "✨",
+    checkpoint: "Full quickstart.md E2E checklist passes; zero internal terms in any visible UI.",
+    tasks: [
+      { id:"T051", parallel:false, story:null, desc:"Create src/lib/sse-labels.ts — export STAGE_LABELS + STAGE_ORDER; update process/[id]/page.tsx to import instead of inline strings" },
+      { id:"T052", parallel:true,  story:null, desc:"Create src/components/GenerationBanner.tsx — GenerationContext; persistent top banner 'Generating your report...' while active; clear on done/error; sessionStorage for soft-nav persistence; add provider to (app)/layout.tsx" },
+      { id:"T053", parallel:false, story:null, desc:"Audit all visible UI strings in (app)/, share/, components/ — grep for internal terms (fetching, analyzing, orchestrator, pipeline, generateWithFallback, LanguageModel…); replace with user-friendly equivalents" },
+      { id:"T054", parallel:false, story:null, desc:"Run full quickstart.md E2E checklist: npm run db:push, npm run dev, Phase 3 curl commands (<90s), then browser checks for Phases 4–10 exit conditions" },
     ]
   },
 ];
 
 const TOTAL = PHASES.reduce((s, p) => s + p.tasks.length, 0);
 const STORAGE_KEY = "learnagent-tasks-progress";
+let openPhases = {};
+
+function saveState(s) {
+  const payload = { tasks: s, savedAt: new Date().toISOString() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  updateSavedAt(payload.savedAt);
+}
 
 function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-  catch { return {}; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!raw) return {};
+    // support both old format (flat object) and new format ({ tasks, savedAt })
+    if (raw.tasks) { updateSavedAt(raw.savedAt); return raw.tasks; }
+    return raw; // legacy flat format
+  } catch { return {}; }
 }
-function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+function updateSavedAt(iso) {
+  const el = document.getElementById("saved-at");
+  if (!el || !iso) return;
+  const d = new Date(iso);
+  el.textContent = "Last saved " + d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+let toastTimer = null;
+function showToast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show " + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "toast"; }, 2800);
+}
+
+function exportProgress() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const payload = raw ? JSON.parse(raw) : {};
+  const tasks = payload.tasks || payload; // handle legacy
+  const doneCount = Object.values(tasks).filter(Boolean).length;
+  const out = {
+    version: 1,
+    project: "002-learnagent-pipeline-build",
+    exportedAt: new Date().toISOString(),
+    completedCount: doneCount,
+    total: TOTAL,
+    tasks
+  };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "learnagent-progress-" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Progress exported (" + doneCount + "/" + TOTAL + " tasks)", "success");
+}
+
+function importProgress() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        // accept both export format and raw flat task object
+        const tasks = parsed.tasks || parsed;
+        // validate: all keys should look like T0xx
+        const keys = Object.keys(tasks);
+        const valid = keys.length === 0 || keys.every(k => /^T\d+$/.test(k));
+        if (!valid) { showToast("Invalid file format", "error"); return; }
+        saveState(tasks);
+        render();
+        showToast("Imported " + keys.filter(k => tasks[k]).length + "/" + TOTAL + " tasks", "success");
+      } catch { showToast("Could not read file", "error"); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
 
 function toggle(id) {
   const s = loadState();
@@ -414,13 +627,8 @@ function resetAll() {
 }
 
 function togglePhase(phaseId) {
-  const body = document.getElementById("body-" + phaseId);
-  const hdr  = document.getElementById("hdr-"  + phaseId);
-  const chev = document.getElementById("chev-" + phaseId);
-  if (!body) return;
-  const open = body.classList.toggle("open");
-  if (open) { hdr.classList.add("open"); chev.textContent = "▾"; }
-  else       { hdr.classList.remove("open"); chev.textContent = "▸"; }
+  openPhases[phaseId] = !openPhases[phaseId];
+  render();
 }
 
 function storyTag(story) {
@@ -446,19 +654,37 @@ function render() {
     if (phaseDone < phase.tasks.length) { currentPhaseId = phase.id; break; }
   }
 
-  // Render phases
   const container = document.getElementById("phases");
+  container.innerHTML = "";
 
-  PHASES.forEach(phase => {
+  container.insertAdjacentHTML("beforeend", `<div class="section-label mvp">▸ MVP Core — test the idea</div>`);
+
+  PHASES.forEach((phase, idx) => {
+    // Inject gate + post-MVP label after Phase 3
+    if (idx === 3) {
+      const p3 = PHASES[2];
+      const p3Done = p3.tasks.filter(t => state[t.id]).length;
+      const p3Complete = p3Done === p3.tasks.length;
+      container.insertAdjacentHTML("beforeend", `
+        <div class="mvp-gate">
+          <div class="mvp-gate-icon">${p3Complete ? "✅" : "🚦"}</div>
+          <div class="mvp-gate-body">
+            <div class="mvp-gate-title">${p3Complete ? "MVP VALIDATED — continue to post-MVP" : "VALIDATION GATE — complete Phase 3 first"}</div>
+            <div class="mvp-gate-desc">Test the idea: a real YouTube URL + project description → specific, non-generic action plan in &lt;90s. If it works, continue. If not, fix prompts before building anything else.</div>
+          </div>
+        </div>
+        <div class="section-label postmvp">▸ Post-MVP — only after core is validated</div>
+      `);
+    }
+
     const phaseDone = phase.tasks.filter(t => state[t.id]).length;
     const phaseTotal = phase.tasks.length;
     const phasePct = Math.round((phaseDone / phaseTotal) * 100);
     const isAllDone = phaseDone === phaseTotal;
     const isCurrent = phase.id === currentPhaseId;
 
-    // Check if element already exists to preserve open/closed state
-    let el = document.getElementById("phase-" + phase.id);
-    const isOpen = el ? document.getElementById("body-" + phase.id)?.classList.contains("open") : isCurrent;
+    if (!(phase.id in openPhases)) openPhases[phase.id] = isCurrent;
+    const isOpen = openPhases[phase.id];
 
     const phaseClass = isAllDone ? "phase done-phase" : isCurrent ? "phase current-phase" : "phase";
     const badge = isAllDone
@@ -485,6 +711,10 @@ function render() {
         </div>`;
     }).join("");
 
+    const mvpBadge = MVP_PHASE_IDS.has(phase.id) && !isAllDone
+      ? `<span class="phase-badge" style="background:#0a1a0a;color:#22c55e99;border:1px solid #22c55e22;font-size:9px;font-weight:700;letter-spacing:.8px;padding:3px 7px;border-radius:4px;flex-shrink:0;">MVP</span>`
+      : "";
+
     const html = `
       <div class="${phaseClass}" id="phase-${phase.id}">
         <div class="phase-header ${isOpen ? 'open' : ''}" id="hdr-${phase.id}" onclick="togglePhase('${phase.id}')">
@@ -493,6 +723,7 @@ function render() {
             <div class="phase-name">${phase.name}</div>
             <div class="phase-meta">${phase.meta}</div>
           </div>
+          ${mvpBadge}
           ${badge}
           <span class="${pctClass}">${pctText}</span>
           <span class="chevron" id="chev-${phase.id}">${isOpen ? "▾" : "▸"}</span>
@@ -504,15 +735,39 @@ function render() {
         </div>
       </div>`;
 
-    if (!el) {
-      container.insertAdjacentHTML("beforeend", html);
-    } else {
-      el.outerHTML = html;
-    }
+    container.insertAdjacentHTML("beforeend", html);
   });
 }
 
+// ── Speckit pipeline definition ──────────────────────────────────────
+const SPECKIT_STEPS = [
+  { cmd: "specify",      label: "spec.md",           done: true  },
+  { cmd: "clarify",      label: "10 Q&A locked",     done: true  },
+  { cmd: "plan",         label: "plan.md + contracts",done: true  },
+  { cmd: "analyze",      label: "cross-artifact QA", done: true  },
+  { cmd: "tasks",        label: "tasks.md (T001–T054)", done: true },
+  { cmd: "implement",    label: "code",               done: false, active: true },
+];
+
+function renderSpeckit() {
+  const flow = document.getElementById("speckit-flow");
+  if (!flow) return;
+  let html = "";
+  SPECKIT_STEPS.forEach((step, i) => {
+    const cls = step.done ? "done" : step.active ? "active" : "";
+    const arrowCls = i > 0 && SPECKIT_STEPS[i-1].done ? "done" : "";
+    if (i > 0) html += `<span class="sk-arrow ${arrowCls}">→</span>`;
+    html += `
+      <div class="sk-step">
+        <div class="sk-node ${cls}">/speckit.${step.cmd}</div>
+        <div class="sk-label ${cls}">${step.label}</div>
+      </div>`;
+  });
+  flow.innerHTML = html;
+}
+
 render();
+renderSpeckit();
 </script>
 </body>
 </html>
