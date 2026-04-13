@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnAgent — Build Progress</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #e5e5e5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 28px 20px 60px;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      gap: 16px;
+    }
+    .title { font-size: 20px; font-weight: 700; }
+    .title span { color: #6366f1; }
+    .subtitle { font-size: 12px; color: #555; margin-top: 3px; }
+    .reset-btn {
+      background: transparent;
+      border: 1px solid #2a2a2a;
+      color: #555;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .reset-btn:hover { border-color: #444; color: #999; }
+
+    /* ── Overall Progress ── */
+    .overall {
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .overall-pct {
+      font-size: 36px;
+      font-weight: 700;
+      color: #6366f1;
+      white-space: nowrap;
+      min-width: 72px;
+    }
+    .overall-right { flex: 1; }
+    .overall-label { font-size: 11px; color: #555; margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .bar-track {
+      background: #1a1a1a;
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #22c55e, #6366f1);
+      transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+    }
+    .overall-count { font-size: 12px; color: #444; }
+
+    /* ── Phase Section ── */
+    .phase {
+      border: 1px solid #1e1e1e;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .phase.current-phase { border-color: #6366f133; }
+    .phase.done-phase { border-color: #22c55e22; }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      cursor: pointer;
+      background: #0f0f0f;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .phase-header:hover { background: #141414; }
+
+    .phase-icon { font-size: 15px; flex-shrink: 0; }
+
+    .phase-title-wrap { flex: 1; min-width: 0; }
+    .phase-name { font-size: 13px; font-weight: 600; }
+    .phase-meta { font-size: 11px; color: #555; margin-top: 2px; }
+
+    .phase-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .badge-now { background: #1e1b4b; color: #818cf8; border: 1px solid #6366f133; }
+    .badge-done { background: #0d2218; color: #22c55e; border: 1px solid #1a5c3633; }
+    .badge-locked { background: #111; color: #444; border: 1px solid #222; }
+
+    .phase-pct { font-size: 12px; font-weight: 600; color: #555; flex-shrink: 0; min-width: 36px; text-align: right; }
+    .phase-pct.done { color: #22c55e; }
+    .phase-pct.current { color: #6366f1; }
+
+    .phase-bar { height: 3px; background: #1a1a1a; }
+    .phase-bar-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #6366f1); transition: width 0.35s; }
+
+    .phase-body { display: none; background: #0a0a0a; }
+    .phase-body.open { display: block; }
+
+    /* ── Task Row ── */
+    .task {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 18px 10px 18px;
+      border-bottom: 1px solid #111;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .task:last-child { border-bottom: none; }
+    .task:hover { background: #0f0f0f; }
+
+    .task-check {
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid #333;
+      border-radius: 4px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      font-size: 10px;
+    }
+    .task.done .task-check {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: white;
+    }
+
+    .task-content { flex: 1; min-width: 0; }
+    .task-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
+    .task-id {
+      font-size: 10px;
+      font-family: monospace;
+      font-weight: 700;
+      color: #555;
+      background: #161616;
+      border: 1px solid #222;
+      padding: 1px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .task.done .task-id { color: #22c55e44; border-color: #1a5c3622; }
+
+    .tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .tag-parallel { background: #1a1230; color: #a78bfa; border: 1px solid #6366f122; }
+    .tag-us1 { background: #0f1e2e; color: #38bdf8; border: 1px solid #0ea5e922; }
+    .tag-us2 { background: #1a1500; color: #fbbf24; border: 1px solid #f59e0b22; }
+    .tag-us3 { background: #1a0f1a; color: #e879f9; border: 1px solid #d946ef22; }
+    .tag-us4 { background: #0f1a1a; color: #34d399; border: 1px solid #10b98122; }
+    .tag-us5 { background: #1a1000; color: #fb923c; border: 1px solid #f9731622; }
+
+    .task-desc {
+      font-size: 12px;
+      color: #777;
+      line-height: 1.5;
+    }
+    .task.done .task-desc { color: #3a3a3a; text-decoration: line-through; }
+
+    .chevron {
+      font-size: 11px;
+      color: #333;
+      flex-shrink: 0;
+      margin-left: 4px;
+      transition: transform 0.2s;
+    }
+    .phase-header.open .chevron { transform: rotate(90deg); }
+
+    /* ── Checkpoint Banner ── */
+    .checkpoint {
+      margin: 0 18px 10px;
+      padding: 9px 12px;
+      background: #0f1a2e;
+      border: 1px solid #1e3a5f44;
+      border-radius: 7px;
+      font-size: 11px;
+      color: #60a5fa;
+      line-height: 1.5;
+    }
+    .checkpoint::before { content: "✦ Checkpoint: "; font-weight: 700; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div>
+      <div class="title">LearnAgent <span>MVP</span></div>
+      <div class="subtitle">specs/002-learnagent-pipeline-build/tasks.md · 45 tasks · click to toggle</div>
+    </div>
+    <button class="reset-btn" onclick="resetAll()">↺ Reset</button>
+  </div>
+
+  <div class="overall">
+    <div class="overall-pct" id="overall-pct">0%</div>
+    <div class="overall-right">
+      <div class="overall-label">Overall Progress</div>
+      <div class="bar-track"><div class="bar-fill" id="overall-fill" style="width:0%"></div></div>
+      <div class="overall-count" id="overall-count">0 / 45 tasks complete</div>
+    </div>
+  </div>
+
+  <div id="phases"></div>
+
+</div>
+
+<script>
+const PHASES = [
+  {
+    id: "p1",
+    name: "Phase 1 — Setup",
+    meta: "Environment & SDK clients",
+    icon: "⚙️",
+    checkpoint: "Packages installed, env vars added, client singletons created.",
+    tasks: [
+      { id:"T001", parallel:false, story:null, desc:"Add @anthropic-ai/sdk and recharts via pnpm add; verify in package.json" },
+      { id:"T002", parallel:false, story:null, desc:"Add ANTHROPIC_API_KEY, SUPADATA_API_KEY, RAPIDAPI_KEY to env.example" },
+      { id:"T003", parallel:true,  story:null, desc:"Create src/lib/anthropic/client.ts — Anthropic singleton + MODEL constant" },
+      { id:"T004", parallel:true,  story:null, desc:"Create src/lib/supadata/client.ts — fetchTranscript() with RapidAPI fallback" },
+    ]
+  },
+  {
+    id: "p2",
+    name: "Phase 2 — Foundational",
+    meta: "Blocking prerequisites — schema, emitter, URL utils",
+    icon: "🗄️",
+    checkpoint: "db:push succeeds; reports, report_sections, tasks, streaks tables exist in Drizzle Studio.",
+    tasks: [
+      { id:"T005", parallel:false, story:null, desc:"Create src/lib/validate-url.ts — extractVideoId() for all YouTube URL formats" },
+      { id:"T006", parallel:false, story:null, desc:"Create src/lib/pipeline-emitter.ts — Map<reportId, EventEmitter> + PipelineEvent types" },
+      { id:"T007", parallel:false, story:null, desc:"Add reports table to schema.ts (uuid PK, userId FK, status, isShared, etc.)" },
+      { id:"T008", parallel:false, story:null, desc:"Add report_sections table to schema.ts (reportId FK, sectionType, contentJson)" },
+      { id:"T009", parallel:false, story:null, desc:"Add tasks table to schema.ts (reportId FK, userId FK, scope, completed, completedAt)" },
+      { id:"T010", parallel:false, story:null, desc:"Add streaks table to schema.ts (userId UNIQUE, currentStreak, longestStreak, lastActiveDate)" },
+      { id:"T011", parallel:false, story:null, desc:"Run db:push; open Drizzle Studio and confirm all 4 tables exist with correct columns" },
+    ]
+  },
+  {
+    id: "p3",
+    name: "Phase 3 — User Story 1",
+    meta: "Submit a video → get a project-specific action plan (P1 MVP)",
+    icon: "🤖",
+    checkpoint: "POST /api/analyze with real URL + project_context returns complete 5-section report in <90s.",
+    tasks: [
+      { id:"T012", parallel:true,  story:"US1", desc:"Create src/agents/fetcher.ts — runFetcher() → FetcherOutput contract" },
+      { id:"T013", parallel:true,  story:"US1", desc:"Create src/agents/analyst.ts — runAnalyst() → AnalystOutput (all fields validated)" },
+      { id:"T014", parallel:true,  story:"US1", desc:"Create src/agents/teacher.ts — runTeacher() → markdown with required headings" },
+      { id:"T015", parallel:false, story:"US1", desc:"Create src/agents/action.ts — runAction() receives projectContext ONLY here; validates array lengths" },
+      { id:"T016", parallel:false, story:"US1", desc:"Create src/agents/orchestrator.ts — sequential pipeline, SSE events, DB writes, error handling" },
+      { id:"T017", parallel:false, story:"US1", desc:"Create src/app/api/analyze/route.ts — POST: auth, validate, fire-and-forget pipeline, return 202" },
+      { id:"T018", parallel:false, story:"US1", desc:"Create src/app/api/analyze/[id]/stream/route.ts — SSE GET stream with abort handling" },
+      { id:"T019", parallel:false, story:"US1", desc:"Create src/app/api/reports/[id]/route.ts — GET with sections + tasks join" },
+      { id:"T020", parallel:true,  story:"US1", desc:"Create src/components/report/ConceptTab.tsx" },
+      { id:"T021", parallel:true,  story:"US1", desc:"Create src/components/report/HighlightsTab.tsx" },
+      { id:"T022", parallel:true,  story:"US1", desc:"Create src/components/report/ModelsTab.tsx" },
+      { id:"T023", parallel:true,  story:"US1", desc:"Create src/components/report/ExamplesTab.tsx" },
+      { id:"T024", parallel:true,  story:"US1", desc:"Create src/components/report/ActionPlanTab.tsx — task list with placeholder checked prop" },
+      { id:"T025", parallel:false, story:"US1", desc:"Create src/app/(app)/home/page.tsx — URL input + project_context form + recent reports" },
+      { id:"T026", parallel:false, story:"US1", desc:"Create src/app/(app)/process/[id]/page.tsx — SSE progress + auto-navigate on done" },
+      { id:"T027", parallel:false, story:"US1", desc:"Create src/app/(app)/report/[id]/page.tsx — 5-tab report view, Action Plan tab first" },
+    ]
+  },
+  {
+    id: "p4",
+    name: "Phase 4 — User Story 2",
+    meta: "Mark tasks complete and maintain a learning streak (P2)",
+    icon: "🔥",
+    checkpoint: "Task completion persists across sessions; streak counter in header updates on toggle.",
+    tasks: [
+      { id:"T028", parallel:false, story:"US2", desc:"Create src/app/api/tasks/[id]/route.ts — PATCH toggle with streak algorithm" },
+      { id:"T029", parallel:false, story:"US2", desc:"Create src/app/api/streak/route.ts — GET current user streak" },
+      { id:"T030", parallel:false, story:"US2", desc:"Update ActionPlanTab.tsx — wire checkboxes to PATCH /api/tasks/[id] + onTaskToggle prop" },
+      { id:"T031", parallel:false, story:"US2", desc:"Update report/[id]/page.tsx — client wrapper with streakCount state" },
+      { id:"T032", parallel:false, story:"US2", desc:"Create src/contexts/StreakContext.tsx — provider + 🔥 header display" },
+    ]
+  },
+  {
+    id: "p5",
+    name: "Phase 5 — User Story 3",
+    meta: "Share a report and export the action plan (P3)",
+    icon: "🔗",
+    checkpoint: "Share link works unauthenticated; 404 when disabled; Markdown copy produces valid output.",
+    tasks: [
+      { id:"T033", parallel:true,  story:"US3", desc:"Create src/app/api/reports/[id]/share/route.ts — POST toggle isShared" },
+      { id:"T034", parallel:true,  story:"US3", desc:"Create src/app/share/[id]/page.tsx — public read-only report with OG tags" },
+      { id:"T035", parallel:false, story:"US3", desc:"Update report/[id]/page.tsx — Share button, Disable sharing, Copy as Markdown" },
+    ]
+  },
+  {
+    id: "p6",
+    name: "Phase 6 — User Story 4",
+    meta: "Browse and search past reports (P4)",
+    icon: "📚",
+    checkpoint: "Searchable library works with real data; empty state renders for new accounts.",
+    tasks: [
+      { id:"T036", parallel:true,  story:"US4", desc:"Create src/app/api/reports/route.ts — GET with pagination + ILIKE search" },
+      { id:"T037", parallel:true,  story:"US4", desc:"Create src/components/library/ReportCard.tsx" },
+      { id:"T038", parallel:false, story:"US4", desc:"Create src/app/(app)/library/page.tsx — debounced search + ReportCard list + empty state" },
+    ]
+  },
+  {
+    id: "p7",
+    name: "Phase 7 — User Story 5",
+    meta: "Progress dashboard with real data (P5)",
+    icon: "📊",
+    checkpoint: "All four metrics show real data; chart renders; empty state for new users.",
+    tasks: [
+      { id:"T039", parallel:true,  story:"US5", desc:"Create src/components/dashboard/StatsCards.tsx — streak, totalReports, totalTasksCompleted" },
+      { id:"T040", parallel:true,  story:"US5", desc:"Create src/components/dashboard/ActivityChart.tsx — 30-day Recharts BarChart" },
+      { id:"T041", parallel:false, story:"US5", desc:"Create src/app/(app)/progress/page.tsx — server component with real DB queries" },
+    ]
+  },
+  {
+    id: "p8",
+    name: "Phase 8 — Polish",
+    meta: "Shared constants, generation banner, terminology audit, E2E validation",
+    icon: "✨",
+    checkpoint: "Full end-to-end pass against quickstart.md; all 10 exit conditions met.",
+    tasks: [
+      { id:"T042", parallel:false, story:null, desc:"Create src/lib/sse-labels.ts — STAGE_LABELS + STAGE_ORDER constants" },
+      { id:"T043", parallel:true,  story:null, desc:"Create src/components/GenerationBanner.tsx — persistent top banner + GenerationContext" },
+      { id:"T044", parallel:false, story:null, desc:"Audit all UI strings for internal terms; replace with STAGE_LABELS user-friendly text" },
+      { id:"T045", parallel:false, story:null, desc:"Run full quickstart.md E2E checklist; verify all phase exit conditions pass" },
+    ]
+  },
+];
+
+const TOTAL = PHASES.reduce((s, p) => s + p.tasks.length, 0);
+const STORAGE_KEY = "learnagent-tasks-progress";
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+function toggle(id) {
+  const s = loadState();
+  s[id] = !s[id];
+  saveState(s);
+  render();
+}
+
+function resetAll() {
+  if (confirm("Reset all task progress?")) { localStorage.removeItem(STORAGE_KEY); render(); }
+}
+
+function togglePhase(phaseId) {
+  const body = document.getElementById("body-" + phaseId);
+  const hdr  = document.getElementById("hdr-"  + phaseId);
+  const chev = document.getElementById("chev-" + phaseId);
+  if (!body) return;
+  const open = body.classList.toggle("open");
+  if (open) { hdr.classList.add("open"); chev.textContent = "▾"; }
+  else       { hdr.classList.remove("open"); chev.textContent = "▸"; }
+}
+
+function storyTag(story) {
+  if (!story) return "";
+  const cls = "tag tag-" + story.toLowerCase();
+  return `<span class="${cls}">${story}</span>`;
+}
+
+function render() {
+  const state = loadState();
+
+  // Overall
+  const doneTotal = Object.values(state).filter(Boolean).length;
+  const pct = Math.round((doneTotal / TOTAL) * 100);
+  document.getElementById("overall-pct").textContent = pct + "%";
+  document.getElementById("overall-fill").style.width = pct + "%";
+  document.getElementById("overall-count").textContent = doneTotal + " / " + TOTAL + " tasks complete";
+
+  // Determine current phase (first with incomplete tasks)
+  let currentPhaseId = null;
+  for (const phase of PHASES) {
+    const phaseDone = phase.tasks.filter(t => state[t.id]).length;
+    if (phaseDone < phase.tasks.length) { currentPhaseId = phase.id; break; }
+  }
+
+  // Render phases
+  const container = document.getElementById("phases");
+
+  PHASES.forEach(phase => {
+    const phaseDone = phase.tasks.filter(t => state[t.id]).length;
+    const phaseTotal = phase.tasks.length;
+    const phasePct = Math.round((phaseDone / phaseTotal) * 100);
+    const isAllDone = phaseDone === phaseTotal;
+    const isCurrent = phase.id === currentPhaseId;
+
+    // Check if element already exists to preserve open/closed state
+    let el = document.getElementById("phase-" + phase.id);
+    const isOpen = el ? document.getElementById("body-" + phase.id)?.classList.contains("open") : isCurrent;
+
+    const phaseClass = isAllDone ? "phase done-phase" : isCurrent ? "phase current-phase" : "phase";
+    const badge = isAllDone
+      ? `<span class="phase-badge badge-done">DONE</span>`
+      : isCurrent
+        ? `<span class="phase-badge badge-now">NOW</span>`
+        : `<span class="phase-badge badge-locked">${phaseDone}/${phaseTotal}</span>`;
+    const pctClass = isAllDone ? "phase-pct done" : isCurrent ? "phase-pct current" : "phase-pct";
+    const pctText = isAllDone ? "100%" : phasePct + "%";
+
+    const tasksHtml = phase.tasks.map(t => {
+      const done = !!state[t.id];
+      return `
+        <div class="task ${done ? 'done' : ''}" onclick="toggle('${t.id}')">
+          <div class="task-check">${done ? "✓" : ""}</div>
+          <div class="task-content">
+            <div class="task-top">
+              <span class="task-id">${t.id}</span>
+              ${t.parallel ? '<span class="tag tag-parallel">PARALLEL</span>' : ""}
+              ${storyTag(t.story)}
+            </div>
+            <div class="task-desc">${t.desc}</div>
+          </div>
+        </div>`;
+    }).join("");
+
+    const html = `
+      <div class="${phaseClass}" id="phase-${phase.id}">
+        <div class="phase-header ${isOpen ? 'open' : ''}" id="hdr-${phase.id}" onclick="togglePhase('${phase.id}')">
+          <span class="phase-icon">${phase.icon}</span>
+          <div class="phase-title-wrap">
+            <div class="phase-name">${phase.name}</div>
+            <div class="phase-meta">${phase.meta}</div>
+          </div>
+          ${badge}
+          <span class="${pctClass}">${pctText}</span>
+          <span class="chevron" id="chev-${phase.id}">${isOpen ? "▾" : "▸"}</span>
+        </div>
+        <div class="phase-bar"><div class="phase-bar-fill" style="width:${phasePct}%"></div></div>
+        <div class="phase-body ${isOpen ? 'open' : ''}" id="body-${phase.id}">
+          ${tasksHtml}
+          <div class="checkpoint">${phase.checkpoint}</div>
+        </div>
+      </div>`;
+
+    if (!el) {
+      container.insertAdjacentHTML("beforeend", html);
+    } else {
+      el.outerHTML = html;
+    }
+  });
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<h2>Where should this progress dashboard live?</h2>
+<p class="subtitle">This affects the tech, the update mechanism, and how you'll interact with it daily</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Inside the LearnAgent app</h3>
+      <p>A dedicated <code>/admin</code> or <code>/dev-status</code> page in the Next.js app. Lives in the codebase, auto-updates as you build phases. Only visible to you.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Standalone HTML file</h3>
+      <p>A self-contained <code>progress.html</code> file you open in a browser. No server needed, works offline, manually updated. Simple and portable.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>SpecKit dashboard page</h3>
+      <p>A dedicated Next.js page that reads <code>specs/main/tasks.md</code> and renders live progress. Powered by the actual task files — truth comes from the spec.</p>
+    </div>
+  </div>
+</div>

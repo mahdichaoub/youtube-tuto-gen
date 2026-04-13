@@ -1,0 +1,26 @@
+<h2>What drives the progress data?</h2>
+<p class="subtitle">How does the dashboard know what's done and what's not?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Manual checkboxes in the UI</h3>
+      <p>You click to mark phases/tasks as done directly in the dashboard. Progress is saved to the database (or localStorage). Simple, no file parsing needed.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Reads from <code>specs/main/tasks.md</code></h3>
+      <p>The dashboard parses your actual SpecKit task file. Tasks marked <code>[x]</code> count as done. Truth lives in the file — dashboard just visualizes it.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hardcoded phases + manual toggle</h3>
+      <p>The 11 build phases (0–10) are hardcoded from <code>CLAUDE.md</code>. You toggle each phase done/not done. No file parsing, no DB — just a config you update as you build.</p>
+    </div>
+  </div>
+</div>
