@@ -179,6 +179,17 @@ export const streaks = pgTable("streaks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const userPreferences = pgTable("user_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  detailLevel: integer("detail_level").notNull().default(3),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─── LearnAgent Model Selection Tables ────────────────────────────────────────
 
 export const userModelConfig = pgTable("user_model_config", {
