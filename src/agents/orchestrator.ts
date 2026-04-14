@@ -34,14 +34,14 @@ export async function runPipeline(
   getEmitter(reportId);
 
   const pipeline = async () => {
-    // Load model config once
-    const modelConfig = await loadUserModelConfig(userId);
+    // Load model config and user preferences in parallel
+    const [modelConfig, prefRow] = await Promise.all([
+      loadUserModelConfig(userId),
+      db.query.userPreferences.findFirst({
+        where: eq(userPreferences.userId, userId),
+      }),
+    ]);
     const mc = { ...modelConfig, userId, reportId };
-
-    // Fetch user detail level preference (default 3)
-    const prefRow = await db.query.userPreferences.findFirst({
-      where: eq(userPreferences.userId, userId),
-    });
     const detailLevel = prefRow?.detailLevel ?? 3;
 
     // ── Step 1: Fetch ──────────────────────────────────────────────────────────
