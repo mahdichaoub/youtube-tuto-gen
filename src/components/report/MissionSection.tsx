@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useStreak } from "@/contexts/StreakContext";
 
 export interface RichTask {
@@ -47,7 +47,7 @@ function TaskRow({
 }: {
   task: TaskItem;
   richTask: string | RichTask;
-  onToggle: (id: string, streak: { currentStreak: number }) => void;
+  onToggle: (id: string, completed: boolean, streak: { currentStreak: number }) => void;
 }) {
   const [checked, setChecked] = useState(task.completed);
   const [pending, setPending] = useState(false);
@@ -69,7 +69,7 @@ function TaskRow({
       });
       if (res.ok) {
         const data = await res.json();
-        onToggle(task.id, data.streak);
+        onToggle(task.id, next, data.streak);
       } else {
         setChecked(!next);
       }
@@ -152,6 +152,7 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
   const [detailLevel, setDetailLevel] = useState(3);
   const [savingDetail, setSavingDetail] = useState(false);
   const [detailSaved, setDetailSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Completion tracking for progress bar — starts from DB state
   const [completionMap, setCompletionMap] = useState<Record<string, boolean>>(() => {
@@ -178,7 +179,8 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
         body: JSON.stringify({ detailLevel: level }),
       });
       setDetailSaved(true);
-      setTimeout(() => setDetailSaved(false), 2000);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setDetailSaved(false), 2000);
     } catch {
       // best effort
     } finally {
@@ -212,9 +214,9 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
         }));
 
   const handleToggle = useCallback(
-    (taskId: string, streak: { currentStreak: number }) => {
+    (taskId: string, completed: boolean, streak: { currentStreak: number }) => {
       setCurrentStreak(streak.currentStreak);
-      setCompletionMap((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
+      setCompletionMap((prev) => ({ ...prev, [taskId]: completed }));
     },
     [setCurrentStreak]
   );
@@ -302,11 +304,11 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
           Do Today
         </p>
         <ul className="space-y-3">
-          {todayList.map((task, i) => (
+          {todayList.map((task) => (
             <TaskRow
               key={task.id}
               task={task}
-              richTask={actions.today[i] ?? task.label}
+              richTask={actions.today.find((t) => getLabel(t) === task.label) ?? task.label}
               onToggle={handleToggle}
             />
           ))}
@@ -319,11 +321,11 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
           This Week
         </p>
         <ul className="space-y-3">
-          {weekList.map((task, i) => (
+          {weekList.map((task) => (
             <TaskRow
               key={task.id}
               task={task}
-              richTask={actions.week[i] ?? task.label}
+              richTask={actions.week.find((t) => getLabel(t) === task.label) ?? task.label}
               onToggle={handleToggle}
             />
           ))}
