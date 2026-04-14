@@ -174,8 +174,8 @@ Create a 24h mission where every single task connects this specific video conten
       if (typeof task.explanation !== "string" || !task.explanation.trim()) {
         throw { code: "contract_violation", agent: "action", field: `${listName}[${i}].explanation`, reason: "Missing or empty" };
       }
-      if (!Array.isArray(task.steps) || (task.steps as string[]).length < 1) {
-        throw { code: "contract_violation", agent: "action", field: `${listName}[${i}].steps`, reason: "Must be array with at least 1 item" };
+      if (!Array.isArray(task.steps) || (task.steps as string[]).length < 1 || (task.steps as string[]).length > 10) {
+        throw { code: "contract_violation", agent: "action", field: `${listName}[${i}].steps`, reason: "Must be array with 1–10 items" };
       }
     }
   }
@@ -194,6 +194,9 @@ Create a 24h mission where every single task connects this specific video conten
   }
   if (typeof parsed.mission_statement !== "string" || !parsed.mission_statement.trim()) {
     throw { code: "contract_violation", agent: "action", field: "mission_statement", reason: "Missing or empty" };
+  }
+  if (!Array.isArray(parsed.resources)) {
+    throw { code: "contract_violation", agent: "action", field: "resources", reason: "Must be an array" };
   }
 
   return {
