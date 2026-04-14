@@ -63,13 +63,13 @@ export function decryptApiKey(stored: string): string {
 // ─── Model builder ────────────────────────────────────────────────────────────
 
 function buildModel(provider: string, modelId: string, apiKey: string): LanguageModel {
-  // Adapters at @ai-sdk/* v3 return LanguageModelV3 while ai@5 types use LanguageModelV2.
-  // The runtime interface is compatible — cast via unknown to satisfy TypeScript.
+  // @ai-sdk/openai@3.x defaults to the Responses API (spec v3) which is incompatible
+  // with ai@5.x (expects spec v2). Use .chat() to force Chat Completions API (spec v2).
   switch (provider) {
     case "anthropic":
       return createAnthropic({ apiKey })(modelId) as unknown as LanguageModel;
     case "openai":
-      return createOpenAI({ apiKey })(modelId) as unknown as LanguageModel;
+      return createOpenAI({ apiKey }).chat(modelId) as unknown as LanguageModel;
     case "google":
       return createGoogleGenerativeAI({ apiKey })(modelId) as unknown as LanguageModel;
     case "groq":
@@ -78,6 +78,11 @@ function buildModel(provider: string, modelId: string, apiKey: string): Language
       return createMistral({ apiKey })(modelId) as unknown as LanguageModel;
     case "openrouter":
       return createOpenRouter({ apiKey })(modelId) as unknown as LanguageModel;
+    case "moonshot":
+      return createOpenAI({
+        baseURL: "https://api.moonshot.ai/v1",
+        apiKey,
+      }).chat(modelId) as unknown as LanguageModel;
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }
@@ -126,15 +131,20 @@ export async function loadUserModelConfig(
     .where(eq(userModelConfig.userId, userId))
     .limit(1);
 
-  // Default: use server ANTHROPIC_API_KEY, no fallback
+  // Default: use server key — priority: MOONSHOT → ANTHROPIC → OPENROUTER
   if (!config[0]) {
-    const serverKey = process.env.ANTHROPIC_API_KEY ?? "";
-    const primary = buildModel(
-      DEFAULT_PRIMARY.provider,
-      DEFAULT_PRIMARY.model,
-      serverKey
-    );
-    return { primary, fallback: null, timeoutMs: 30000, dailyCostLimitUsd: 5.0 };
+    const anthropicKey = (process.env.ANTHROPIC_API_KEY ?? "").trim();
+    const openrouterKey = (process.env.OPENROUTER_API_KEY ?? "").trim();
+    const moonshotKey = (process.env.MOONSHOT_API_KEY ?? "").trim();
+
+    const [provider, model, serverKey] = moonshotKey
+      ? (["moonshot", "kimi-k2-0711-preview", moonshotKey] as const)
+      : anthropicKey
+        ? ([DEFAULT_PRIMARY.provider, DEFAULT_PRIMARY.model, anthropicKey] as const)
+        : (["openrouter", "moonshotai/kimi-k2", openrouterKey] as const);
+
+    const primary = buildModel(provider, model, serverKey);
+    return { primary, fallback: null, timeoutMs: 60000, dailyCostLimitUsd: 5.0 };
   }
 
   const cfg = config[0];

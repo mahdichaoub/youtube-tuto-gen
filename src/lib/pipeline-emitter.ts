@@ -30,8 +30,19 @@ export type PipelineEvent =
   | PipelineErrorEvent;
 
 // ─── Emitter registry ──────────────────────────────────────────────────────────
+// Use globalThis so the Map is shared across all Next.js route module instances
+// (Turbopack isolates modules per route, so a module-level Map would not be shared).
 
-const emitters = new Map<string, EventEmitter>();
+declare global {
+  // eslint-disable-next-line no-var
+  var __pipelineEmitters: Map<string, EventEmitter> | undefined;
+}
+
+if (!globalThis.__pipelineEmitters) {
+  globalThis.__pipelineEmitters = new Map<string, EventEmitter>();
+}
+
+const emitters = globalThis.__pipelineEmitters;
 
 /**
  * Returns the EventEmitter for the given reportId.

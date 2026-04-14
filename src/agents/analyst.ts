@@ -11,10 +11,19 @@ export interface ModelConfig {
   reportId: string;
 }
 
+export interface KeyInsight {
+  claim: string;    // Bold, counter-intuitive statement
+  example: string;  // Concrete example from the video
+  mistake: string;  // The mistake this insight prevents
+}
+
 export interface AnalystOutput {
   video_id: string;
-  core_concept: string;
-  key_highlights: string[];
+  hook: string;           // 1-2 sentences: why this topic matters RIGHT NOW
+  core_concept: string;   // The big idea in one punchy sentence
+  big_idea_prompt: string; // A provocative question the teacher should answer
+  key_insights: KeyInsight[]; // Exactly 3 counter-intuitive insights
+  key_highlights: string[]; // Kept for backward compat — mirrors insight claims
   mental_models: string[];
   examples_used: string[];
   warnings_and_mistakes: string[];
@@ -24,26 +33,35 @@ export interface AnalystOutput {
   usedFallback: boolean;
 }
 
-const SYSTEM_PROMPT = `You are a learning analyst. Given a YouTube video transcript, extract a structured analysis.
+const SYSTEM_PROMPT = `You are a learning analyst extracting content from a YouTube video for a Skool-style learning experience.
 
 Return ONLY valid JSON with these exact fields:
 {
   "video_id": "string — same as input",
-  "core_concept": "string — one sentence summary of the main idea",
-  "key_highlights": ["string", ...],  // 5-7 items
-  "mental_models": ["string", ...],   // 2-5 frameworks or thinking patterns
-  "examples_used": ["string", ...],   // concrete examples from the video
-  "warnings_and_mistakes": ["string", ...],  // pitfalls or common errors mentioned
-  "key_terms": ["string", ...],        // important vocabulary
+  "hook": "string — 1-2 punchy sentences on why this topic matters RIGHT NOW for developers/builders",
+  "core_concept": "string — the big idea in one bold, memorable sentence (not a bland summary)",
+  "big_idea_prompt": "string — a provocative question or statement the teacher should answer (e.g. 'Why do most developers get this completely backwards?')",
+  "key_insights": [
+    {
+      "claim": "string — a bold, counter-intuitive statement (start with a strong verb or 'Most people...')",
+      "example": "string — a concrete, specific example from the video that proves the claim",
+      "mistake": "string — the common mistake this insight prevents"
+    }
+  ],
+  "mental_models": ["string", ...],
+  "examples_used": ["string", ...],
+  "warnings_and_mistakes": ["string", ...],
+  "key_terms": ["string", ...],
   "estimated_difficulty": "beginner" | "intermediate" | "advanced",
-  "topic_category": "string — short topic label (e.g. 'Machine Learning', 'System Design')"
+  "topic_category": "string — short topic label (e.g. 'React', 'System Design', 'Machine Learning')"
 }
 
 Rules:
-- key_highlights must have 5–7 items exactly
+- key_insights: EXACTLY 3 items — each must be counter-intuitive, not obvious
+- hook: energetic and direct, like a Skool post opener — NO generic phrases like "In today's video..."
+- core_concept: punchy and memorable, not academic
 - All fields are required
-- Return ONLY JSON, no markdown, no code fences
-- Do not add commentary before or after the JSON`;
+- Return ONLY JSON, no markdown, no code fences`;
 
 /**
  * Analyst agent — single AI call via generateWithFallback.
@@ -93,13 +111,13 @@ ${truncatedTranscript}`;
   }
 
   // Contract validation
-  const highlights = parsed.key_highlights;
-  if (!Array.isArray(highlights) || highlights.length < 5 || highlights.length > 7) {
+  const insights = parsed.key_insights;
+  if (!Array.isArray(insights) || insights.length !== 3) {
     throw {
       code: "contract_violation",
       agent: "analyst",
-      field: "key_highlights",
-      reason: `Expected 5–7 items, got ${Array.isArray(highlights) ? highlights.length : "non-array"}`,
+      field: "key_insights",
+      reason: `Expected exactly 3 items, got ${Array.isArray(insights) ? insights.length : "non-array"}`,
     };
   }
 
@@ -113,7 +131,7 @@ ${truncatedTranscript}`;
     };
   }
 
-  const requiredStrings = ["video_id", "core_concept", "topic_category"];
+  const requiredStrings = ["video_id", "core_concept", "topic_category", "hook", "big_idea_prompt"];
   for (const field of requiredStrings) {
     if (typeof parsed[field] !== "string" || !(parsed[field] as string).trim()) {
       throw {
@@ -125,10 +143,16 @@ ${truncatedTranscript}`;
     }
   }
 
+  const keyInsights = insights as KeyInsight[];
+
   return {
     video_id: parsed.video_id as string,
+    hook: parsed.hook as string,
     core_concept: parsed.core_concept as string,
-    key_highlights: parsed.key_highlights as string[],
+    big_idea_prompt: parsed.big_idea_prompt as string,
+    key_insights: keyInsights,
+    // Backward compat: mirror insight claims as key_highlights
+    key_highlights: keyInsights.map((i) => i.claim),
     mental_models: (parsed.mental_models as string[]) ?? [],
     examples_used: (parsed.examples_used as string[]) ?? [],
     warnings_and_mistakes: (parsed.warnings_and_mistakes as string[]) ?? [],

@@ -42,6 +42,18 @@ export async function GET(
     });
   }
 
+  // Already failed — emit error immediately
+  if (reportRows[0].status === "failed") {
+    const body = `data: ${JSON.stringify({ type: "error", message: "We couldn't process this video. Please try again." })}\n\n`;
+    return new Response(body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  }
+
   // Stream events
   const emitter = getEmitter(id);
 

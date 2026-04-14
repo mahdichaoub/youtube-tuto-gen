@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { reportCostLog } from "@/lib/schema";
 import { eq, gte, and, sum } from "drizzle-orm";
 
-export type AgentName = "analyst" | "teacher" | "action";
+export type AgentName = "analyst" | "teacher" | "action" | "researcher";
 
 export interface GenerateConfig {
   timeoutMs: number;
@@ -94,37 +94,43 @@ export async function generateWithFallback(
   const { timeoutMs, dailyCostLimitUsd, userId, reportId, agentName } = config;
 
   // Step 1 — daily cost gate
-  const todayCost = await getTodayCostUsd(userId);
+  console.log(`[call:${agentName}] checking daily cost for userId=${userId}`);
+  let todayCost: number;
+  try {
+    todayCost = await getTodayCostUsd(userId);
+  } catch (err) {
+    console.error(`[call:${agentName}] getTodayCostUsd FAILED:`, err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err));
+    throw err;
+  }
+  console.log(`[call:${agentName}] todayCost=${todayCost} limit=${dailyCostLimitUsd}`);
+
   if (todayCost >= dailyCostLimitUsd) {
     if (fallback) {
-      // Skip primary, go straight to fallback
       return runModel(fallback, prompt, maxTokens, userId, reportId, true);
     }
     throw { code: "model_failed", reason: "daily_limit_reached", agentName };
   }
 
   // Step 2 — try primary with per-step timeout
+  console.log(`[call:${agentName}] calling primary model`);
   try {
-    return await runModel(
-      primary,
-      prompt,
-      maxTokens,
-      userId,
-      reportId,
-      false,
-      timeoutMs
-    );
+    const result = await runModel(primary, prompt, maxTokens, userId, reportId, false, timeoutMs);
+    console.log(`[call:${agentName}] primary model succeeded`);
+    return result;
   } catch (err) {
-    if (!isProviderError(err)) throw err; // Bug — re-throw, don't mask
+    console.error(`[call:${agentName}] primary model FAILED:`, err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err));
+    if (!isProviderError(err)) throw err;
     if (!fallback) {
       throw { code: "model_failed", reason: "primary_failed", agentName };
     }
   }
 
   // Step 3 — try fallback (no per-step timeout override)
+  console.log(`[call:${agentName}] calling fallback model`);
   try {
     return await runModel(fallback!, prompt, maxTokens, userId, reportId, true);
-  } catch {
+  } catch (err) {
+    console.error(`[call:${agentName}] fallback model FAILED:`, err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err));
     throw { code: "all_models_failed", agentName };
   }
 }

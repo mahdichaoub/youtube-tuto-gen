@@ -14,6 +14,7 @@ export const PROVIDERS = {
   groq: "groq",
   mistral: "mistral",
   openrouter: "openrouter",
+  moonshot: "moonshot",
 } as const;
 
 export type Provider = (typeof PROVIDERS)[keyof typeof PROVIDERS];
@@ -36,6 +37,8 @@ export const MODEL_REGISTRY: Record<Provider, string[]> = {
   ],
   // OpenRouter accepts any model slug — freeform input in the UI
   openrouter: [],
+  // Moonshot AI — Kimi models (api.moonshot.ai/v1)
+  moonshot: ["kimi-k2-0711-preview", "kimi-k2-turbo-preview", "kimi-k2-thinking"],
 };
 
 // ─── Cost rates (USD per token) ───────────────────────────────────────────────
@@ -62,6 +65,10 @@ export const COST_RATES: Record<string, { input: number; output: number }> = {
   "mistral-small-latest": { input: 0.000001, output: 0.000003 },
   "mistral-medium-latest": { input: 0.000002, output: 0.000006 },
   "mistral-large-latest": { input: 0.000008, output: 0.000024 },
+  // Moonshot AI — Kimi K2
+  "kimi-k2-0711-preview": { input: 0.00000015, output: 0.0000025 },
+  "kimi-k2-turbo-preview": { input: 0.00000015, output: 0.0000025 },
+  "kimi-k2-thinking": { input: 0.00000015, output: 0.0000025 },
 };
 
 /** Fallback rate for unknown models (e.g. custom OpenRouter slugs). */

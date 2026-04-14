@@ -108,8 +108,13 @@ export const reports = pgTable(
     topicCategory: text("topic_category"),
     estimatedDifficulty: text("estimated_difficulty"),
     projectContext: text("project_context").notNull(),
+    // Customization fields (added in Phase 4 upgrade)
+    depth: text("depth").notNull().default("deep"),           // quick | deep | expert
+    focus: text("focus"),                                      // optional free-text focus instruction
+    referenceUrl: text("reference_url"),                       // optional reference URL
+    referenceUrlType: text("reference_url_type"),              // style_guide | extra_reading | project_context
     // Internal status values — NEVER display verbatim in UI
-    // lifecycle: fetching → analyzing → teaching → planning → complete | failed
+    // lifecycle: fetching → analyzing → researching → teaching → planning → complete | failed
     status: text("status").notNull().default("fetching"),
     isShared: boolean("is_shared").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -128,7 +133,7 @@ export const reportSections = pgTable(
     reportId: uuid("report_id")
       .notNull()
       .references(() => reports.id, { onDelete: "cascade" }),
-    // sectionType values: concept | highlights | models | examples | actions
+    // sectionType values: concept | highlights | models | examples | actions | insights | research
     sectionType: text("section_type").notNull(),
     contentJson: jsonb("content_json").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

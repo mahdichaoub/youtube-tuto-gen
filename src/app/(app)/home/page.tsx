@@ -16,10 +16,23 @@ interface RecentReport {
   createdAt: string;
 }
 
+type Depth = "quick" | "deep" | "expert";
+type RefType = "style_guide" | "extra_reading" | "project_context";
+
+const DEPTH_OPTIONS: { value: Depth; label: string; desc: string }[] = [
+  { value: "quick", label: "Quick", desc: "~100 words/section" },
+  { value: "deep", label: "Deep", desc: "~300 words/section" },
+  { value: "expert", label: "Expert", desc: "~500 words + edge cases" },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [projectContext, setProjectContext] = useState("");
+  const [depth, setDepth] = useState<Depth>("deep");
+  const [focus, setFocus] = useState("");
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [referenceUrlType, setReferenceUrlType] = useState<RefType>("extra_reading");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
@@ -52,7 +65,14 @@ export default function HomePage() {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), project_context: projectContext.trim() }),
+        body: JSON.stringify({
+          url: url.trim(),
+          project_context: projectContext.trim(),
+          depth,
+          focus: focus.trim() || undefined,
+          reference_url: referenceUrl.trim() || undefined,
+          reference_url_type: referenceUrl.trim() ? referenceUrlType : undefined,
+        }),
       });
 
       const data = await res.json();
@@ -113,6 +133,74 @@ export default function HomePage() {
             </p>
           </div>
 
+          {/* Depth selector */}
+          <div className="space-y-2">
+            <Label>Depth</Label>
+            <div className="flex gap-2">
+              {DEPTH_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDepth(opt.value)}
+                  disabled={isSubmitting}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors text-left ${
+                    depth === opt.value
+                      ? "border-primary bg-primary/10 font-semibold text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <div className="font-medium">{opt.label}</div>
+                  <div className="text-xs opacity-70">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Focus (optional) */}
+          <div className="space-y-2">
+            <Label htmlFor="focus">
+              Focus{" "}
+              <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="focus"
+              type="text"
+              placeholder='e.g. "focus on the coding examples" or "explain the business angle"'
+              value={focus}
+              onChange={(e) => setFocus(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Reference URL (optional) */}
+          <div className="space-y-2">
+            <Label htmlFor="ref-url">
+              Reference URL{" "}
+              <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="ref-url"
+                type="url"
+                placeholder="https://..."
+                value={referenceUrl}
+                onChange={(e) => setReferenceUrl(e.target.value)}
+                disabled={isSubmitting}
+                className="flex-1"
+              />
+              <select
+                value={referenceUrlType}
+                onChange={(e) => setReferenceUrlType(e.target.value as RefType)}
+                disabled={isSubmitting || !referenceUrl.trim()}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="extra_reading">Extra reading</option>
+                <option value="project_context">My project / repo</option>
+                <option value="style_guide">Style guide</option>
+              </select>
+            </div>
+          </div>
+
           {error && (
             <p className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
               {error}
@@ -120,7 +208,7 @@ export default function HomePage() {
           )}
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Starting..." : "Generate Action Plan"}
+            {isSubmitting ? "Starting..." : "Generate My Action Plan →"}
           </Button>
         </form>
 

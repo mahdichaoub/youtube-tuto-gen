@@ -1,0 +1,89 @@
+<h2>Which direction should LearnAgent's report feel like?</h2>
+<p class="subtitle">Current output is functional but dry. Pick the experience direction that resonates most.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="current" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#1e1e2e;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#cdd6f4">
+        <div style="background:#313244;border-radius:4px;padding:8px;margin-bottom:8px">
+          <span style="color:#89b4fa;font-weight:bold">Core Concept</span>
+          <p style="color:#a6adc8;margin:4px 0 0">One sentence. That's it.</p>
+        </div>
+        <div style="background:#313244;border-radius:4px;padding:8px;margin-bottom:8px">
+          <span style="color:#89b4fa;font-weight:bold">Key Highlights</span>
+          <ul style="color:#a6adc8;margin:4px 0 0;padding-left:16px">
+            <li>Bullet 1</li><li>Bullet 2</li><li>Bullet 3</li>
+          </ul>
+        </div>
+        <div style="background:#313244;border-radius:4px;padding:8px">
+          <span style="color:#89b4fa;font-weight:bold">Action Plan</span>
+          <p style="color:#a6adc8;margin:4px 0 0">☐ Task 1 &nbsp; ☐ Task 2 &nbsp; ☐ Task 3</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Current — Functional but flat</h3>
+      <p>Structured data. Tabs. Checkboxes. Gets the job done but feels like a report card, not a learning experience. No narrative thread connecting the sections.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="udemy" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#1a1a2e;border-radius:8px;padding:16px;font-size:12px;color:#e0e0e0">
+        <div style="background:#16213e;border-radius:4px;padding:10px;margin-bottom:8px;border-left:3px solid #e2b96f">
+          <span style="color:#e2b96f;font-weight:bold;font-size:11px;text-transform:uppercase">🎓 Why This Matters To You</span>
+          <p style="margin:6px 0 0;color:#b0b8c8;line-height:1.5">"Given you're building a SaaS app, this concept directly impacts how you'll design your…"</p>
+        </div>
+        <div style="background:#16213e;border-radius:4px;padding:10px;margin-bottom:8px">
+          <span style="color:#7ec8e3;font-weight:bold;font-size:11px">📖 THE FULL STORY</span>
+          <p style="margin:6px 0 0;color:#b0b8c8;line-height:1.5">Rich multi-paragraph explanation. Analogies. Examples. The "aha!" moment spelled out clearly.</p>
+        </div>
+        <div style="background:#16213e;border-radius:4px;padding:10px">
+          <span style="color:#90ee90;font-weight:bold;font-size:11px">⚡ APPLY IT NOW</span>
+          <p style="margin:6px 0 0;color:#b0b8c8">Step-by-step. Tied to YOUR project. Not generic.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Udemy-style — Deep & narrative</h3>
+      <p>Long-form content, instructor voice. Sections flow like a course module: context → concept → application. Rich explanations with analogies. Project-aware from the start.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="skool" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f172a;border-radius:8px;padding:16px;font-size:12px;color:#e2e8f0">
+        <div style="background:#1e293b;border-radius:8px;padding:10px;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start">
+          <span style="font-size:20px">🔥</span>
+          <div>
+            <span style="color:#f8fafc;font-weight:bold">The Big Idea</span>
+            <p style="margin:4px 0 0;color:#94a3b8">Short. Punchy. "The one thing you must understand before you build anything."</p>
+          </div>
+        </div>
+        <div style="background:#1e293b;border-radius:8px;padding:10px;margin-bottom:8px">
+          <span style="color:#a78bfa;font-weight:bold">💡 3 Insights That Will Change How You Build</span>
+          <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+            <div style="background:#2d3748;border-radius:4px;padding:6px;color:#cbd5e1">1. Bold insight with real example</div>
+            <div style="background:#2d3748;border-radius:4px;padding:6px;color:#cbd5e1">2. Counter-intuitive takeaway</div>
+            <div style="background:#2d3748;border-radius:4px;padding:6px;color:#cbd5e1">3. The mistake everyone makes</div>
+          </div>
+        </div>
+        <div style="background:#1e293b;border-radius:8px;padding:10px">
+          <span style="color:#34d399;font-weight:bold">🎯 Your 24h Challenge</span>
+          <p style="margin:6px 0 0;color:#94a3b8">One specific, exciting thing to ship today.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Skool-style — Community & energy</h3>
+      <p>Energetic, social-learning tone. Shorter sections but punchier. Heavy on "you", momentum, challenge. Feels like a coach briefing you, not a professor lecturing.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:24px;background:rgba(255,255,255,0.04);border-radius:8px;padding:16px">
+  <p class="label">What we're really deciding</p>
+  <p style="opacity:0.8;font-size:14px">This choice shapes both the AI prompts (what gets generated) and the UI layout (how it's displayed). You can also pick a blend — e.g. Udemy depth with Skool energy. Let me know in the terminal.</p>
+</div>

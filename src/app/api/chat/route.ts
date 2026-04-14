@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
-import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, UIMessage, convertToModelMessages } from "ai";
+import { streamText, type UIMessage, convertToModelMessages } from "ai";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { loadUserModelConfig } from "@/lib/models/client";
 
 // Zod schema for message validation
 const messagePartSchema = z.object({
@@ -56,25 +56,25 @@ export async function POST(req: Request) {
     );
   }
 
-  const { messages }: { messages: UIMessage[] } = parsed.data as { messages: UIMessage[] };
+  const { messages } = parsed.data as { messages: UIMessage[] };
 
-  // Initialize OpenAI with API key from environment
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: "OpenAI API key not configured" }), {
+  // Load model from user config — falls back to Anthropic → Moonshot → OpenRouter
+  // based on whichever server API keys are set. No hardcoded provider.
+  let modelConfig;
+  try {
+    modelConfig = await loadUserModelConfig(session.user.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to load model config";
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  const openai = createOpenAI({ apiKey });
-
   const result = streamText({
-    model: openai(process.env.OPENAI_MODEL || "gpt-4o-mini"),
-    messages: convertToModelMessages(messages),
+    model: modelConfig.primary,
+    messages: await convertToModelMessages(messages),
   });
 
-  return (
-    result as unknown as { toUIMessageStreamResponse: () => Response }
-  ).toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse();
 }

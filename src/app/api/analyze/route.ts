@@ -15,14 +15,25 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Parse body
-  let body: { url?: string; project_context?: string };
+  let body: {
+    url?: string;
+    project_context?: string;
+    depth?: string;
+    focus?: string;
+    reference_url?: string;
+    reference_url_type?: string;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  const { url, project_context } = body;
+  const { url, project_context, depth, focus, reference_url, reference_url_type } = body;
+
+  // Validate depth if provided
+  const validDepths = ["quick", "deep", "expert"];
+  const resolvedDepth = validDepths.includes(depth ?? "") ? depth! : "deep";
 
   // 3. Validate URL
   const videoId = extractVideoId(url ?? "");
@@ -51,7 +62,7 @@ export async function POST(req: NextRequest) {
     .where(
       and(
         eq(reports.userId, session.user.id),
-        inArray(reports.status, ["fetching", "analyzing", "teaching", "planning"])
+        inArray(reports.status, ["fetching", "analyzing", "researching", "teaching", "planning"])
       )
     )
     .limit(1);
@@ -74,6 +85,10 @@ export async function POST(req: NextRequest) {
       videoId,
       videoUrl: url!,
       projectContext: project_context.trim(),
+      depth: resolvedDepth,
+      focus: focus?.trim() || null,
+      referenceUrl: reference_url?.trim() || null,
+      referenceUrlType: reference_url_type || null,
       status: "fetching",
     })
     .returning({ id: reports.id });
@@ -84,7 +99,12 @@ export async function POST(req: NextRequest) {
   }
 
   // 7. Fire-and-forget pipeline
-  runPipeline(newReport.id, url!, project_context.trim(), session.user.id).catch(
+  runPipeline(newReport.id, url!, project_context.trim(), session.user.id, {
+    depth: resolvedDepth,
+    focus: focus?.trim() || null,
+    referenceUrl: reference_url?.trim() || null,
+    referenceUrlType: reference_url_type || null,
+  }).catch(
     (err) => {
       console.error("[analyze] unhandled pipeline error", err);
     }

@@ -1,14 +1,26 @@
-import { notFound, redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+"use client";
+
+import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { ConceptTab } from "@/components/report/ConceptTab";
-import { HighlightsTab } from "@/components/report/HighlightsTab";
-import { ModelsTab } from "@/components/report/ModelsTab";
-import { ExamplesTab } from "@/components/report/ExamplesTab";
-import { ActionPlanTab } from "@/components/report/ActionPlanTab";
-import type { ActionOutput, TaskItem } from "@/components/report/ActionPlanTab";
+import { HookSection } from "@/components/report/HookSection";
+import { BigIdeaSection } from "@/components/report/BigIdeaSection";
+import { InsightsSection } from "@/components/report/InsightsSection";
+import { ResearchLinksSection } from "@/components/report/ResearchLinksSection";
+import { MissionSection } from "@/components/report/MissionSection";
+import type { ActionOutput, TaskItem } from "@/components/report/MissionSection";
+
+interface KeyInsight {
+  claim: string;
+  example: string;
+  mistake: string;
+}
+
+interface ResearchData {
+  concept_articles: { title: string; url: string; summary: string; source_type: string }[];
+  project_docs: { title: string; url: string; summary: string; source_type: string }[];
+  enriched_explanation: string;
+}
 
 interface ReportData {
   id: string;
@@ -22,119 +34,119 @@ interface ReportData {
   isShared: boolean;
   createdAt: string;
   sections: {
-    concept?: { core_concept: string; explanation: string };
+    concept?: {
+      hook?: string;
+      core_concept: string;
+      big_idea_prompt?: string;
+      explanation: string;
+      why_matters?: string;
+    };
+    insights?: { items: KeyInsight[] };
     highlights?: { items: string[] };
-    models?: { items: Array<{ name: string; description: string }> };
-    examples?: { items: string[] };
     actions?: ActionOutput;
+    research?: ResearchData;
   };
   tasks: TaskItem[];
 }
 
-async function getReport(id: string): Promise<ReportData | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return null;
-
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/reports/${id}`, {
-    headers: { cookie: (await headers()).get("cookie") ?? "" },
-    cache: "no-store",
-  });
-
-  if (!res.ok) return null;
-  return res.json();
-}
-
-export default async function ReportPage({
+export default function ReportPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id } = use(params);
+  const router = useRouter();
 
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/");
+  const [report, setReport] = useState<ReportData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const report = await getReport(id);
-  if (!report) notFound();
+  useEffect(() => {
+    fetch(`/api/reports/${id}`)
+      .then((res) => {
+        if (res.status === 401) { router.push("/"); return null; }
+        if (!res.ok) { router.push("/home"); return null; }
+        return res.json();
+      })
+      .then((data) => { if (data) setReport(data); })
+      .finally(() => setLoading(false));
+  }, [id, router]);
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-10 space-y-4">
+        <div className="h-8 w-56 bg-muted rounded animate-pulse" />
+        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+        <div className="h-32 bg-muted rounded-xl animate-pulse" />
+        <div className="h-48 bg-muted rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!report) return null;
 
   const { sections, tasks } = report;
+  const concept = sections.concept;
+  const insights = sections.insights?.items ?? [];
+  const actions = sections.actions;
+  const research = sections.research;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold leading-tight mb-2">
-            {report.title ?? "Video Report"}
-          </h1>
-          <div className="flex flex-wrap gap-2">
-            {report.topicCategory && (
-              <Badge variant="secondary">{report.topicCategory}</Badge>
-            )}
-            {report.estimatedDifficulty && (
-              <Badge variant="outline" className="capitalize">
-                {report.estimatedDifficulty}
-              </Badge>
-            )}
-          </div>
+    <div className="max-w-2xl mx-auto px-4 py-10 space-y-4">
+      {/* Header */}
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold leading-tight mb-3">
+          {report.title ?? "Video Report"}
+        </h1>
+        <div className="flex flex-wrap gap-2">
+          {report.topicCategory && (
+            <Badge variant="secondary">{report.topicCategory}</Badge>
+          )}
+          {report.estimatedDifficulty && (
+            <Badge variant="outline" className="capitalize">
+              {report.estimatedDifficulty}
+            </Badge>
+          )}
         </div>
-
-        {/* Tabs */}
-        <Tabs defaultValue="actions">
-          <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
-            <TabsTrigger value="actions">Action Plan</TabsTrigger>
-            <TabsTrigger value="concept">Core Concept</TabsTrigger>
-            <TabsTrigger value="highlights">Key Highlights</TabsTrigger>
-            <TabsTrigger value="models">Mental Models</TabsTrigger>
-            <TabsTrigger value="examples">Real Examples</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="actions">
-            {sections.actions ? (
-              <ActionPlanTab
-                actions={sections.actions}
-                tasks={tasks}
-                projectContext={report.projectContext}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">Action plan not available.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="concept">
-            {sections.concept ? (
-              <ConceptTab concept={sections.concept} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Content not available.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="highlights">
-            {sections.highlights ? (
-              <HighlightsTab highlights={sections.highlights} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Content not available.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="models">
-            {sections.models ? (
-              <ModelsTab models={sections.models} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Content not available.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="examples">
-            {sections.examples ? (
-              <ExamplesTab examples={sections.examples} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Content not available.</p>
-            )}
-          </TabsContent>
-        </Tabs>
       </div>
+
+      {/* 🔥 Why This Matters To You */}
+      {concept?.why_matters && (
+        <HookSection
+          whyMatters={concept.why_matters}
+          projectContext={report.projectContext}
+        />
+      )}
+
+      {/* 💡 The Big Idea */}
+      {concept && (
+        <BigIdeaSection
+          coreConcept={concept.core_concept}
+          explanation={concept.explanation}
+          bigIdeaPrompt={concept.big_idea_prompt}
+        />
+      )}
+
+      {/* ⚡ 3 Insights */}
+      {insights.length > 0 && (
+        <InsightsSection insights={insights} />
+      )}
+
+      {/* 🔍 Research Links */}
+      {research && (
+        <ResearchLinksSection research={research} />
+      )}
+
+      {/* 🎯 Mission */}
+      {actions && (
+        <MissionSection actions={actions} tasks={tasks} />
+      )}
+
+      {/* Fallback for old reports without new sections */}
+      {!concept?.why_matters && !insights.length && !actions?.hook && (
+        <p className="text-xs text-muted-foreground text-center py-4">
+          This report was generated before the latest upgrade. Generate a new one to see the full experience.
+        </p>
+      )}
     </div>
   );
 }

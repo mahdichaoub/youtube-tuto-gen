@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface ActionOutput {
@@ -26,14 +27,95 @@ interface ActionPlanTabProps {
   onTaskToggle?: (taskId: string, newStreak: { currentStreak: number }) => void;
 }
 
+function TaskCheckbox({
+  task,
+  onToggle,
+}: {
+  task: TaskItem;
+  onToggle: (id: string, streak: { currentStreak: number }) => void;
+}) {
+  const [checked, setChecked] = useState(task.completed);
+  const [pending, setPending] = useState(false);
+
+  const handleChange = useCallback(async () => {
+    if (pending) return;
+    const next = !checked;
+    setChecked(next);
+    setPending(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: next }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onToggle(task.id, data.streak);
+      } else {
+        // Revert on failure
+        setChecked(!next);
+      }
+    } catch {
+      setChecked(!next);
+    } finally {
+      setPending(false);
+    }
+  }, [checked, pending, task.id, onToggle]);
+
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={handleChange}
+        disabled={pending}
+        className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border accent-primary cursor-pointer disabled:cursor-wait"
+      />
+      <span className={checked ? "line-through text-muted-foreground" : ""}>
+        {task.label}
+      </span>
+    </li>
+  );
+}
+
 export function ActionPlanTab({
   actions,
   tasks,
   projectContext,
-  onTaskToggle: _onTaskToggle,
+  onTaskToggle,
 }: ActionPlanTabProps) {
   const todayTasks = tasks.filter((t) => t.scope === "today");
   const weekTasks = tasks.filter((t) => t.scope === "week");
+
+  const handleToggle = useCallback(
+    (taskId: string, streak: { currentStreak: number }) => {
+      onTaskToggle?.(taskId, streak);
+    },
+    [onTaskToggle]
+  );
+
+  // Fallback static tasks (no DB ids) are read-only
+  const todayList =
+    todayTasks.length > 0
+      ? todayTasks
+      : actions.today.map((label, i) => ({
+          id: `today-${i}`,
+          label,
+          scope: "today" as const,
+          completed: false,
+          completedAt: null,
+        }));
+
+  const weekList =
+    weekTasks.length > 0
+      ? weekTasks
+      : actions.week.map((label, i) => ({
+          id: `week-${i}`,
+          label,
+          scope: "week" as const,
+          completed: false,
+          completedAt: null,
+        }));
 
   return (
     <div className="space-y-4">
@@ -50,8 +132,8 @@ export function ActionPlanTab({
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
-            {(todayTasks.length > 0 ? todayTasks : actions.today.map((label, i) => ({ id: `today-${i}`, label, scope: "today" as const, completed: false, completedAt: null }))).map(
-              (task) => (
+            {todayList.map((task) =>
+              task.id.startsWith("today-") ? (
                 <li key={task.id} className="flex items-start gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -59,10 +141,10 @@ export function ActionPlanTab({
                     readOnly
                     className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border accent-primary cursor-default"
                   />
-                  <span className={task.completed ? "line-through text-muted-foreground" : ""}>
-                    {task.label}
-                  </span>
+                  <span>{task.label}</span>
                 </li>
+              ) : (
+                <TaskCheckbox key={task.id} task={task} onToggle={handleToggle} />
               )
             )}
           </ul>
@@ -76,8 +158,8 @@ export function ActionPlanTab({
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
-            {(weekTasks.length > 0 ? weekTasks : actions.week.map((label, i) => ({ id: `week-${i}`, label, scope: "week" as const, completed: false, completedAt: null }))).map(
-              (task) => (
+            {weekList.map((task) =>
+              task.id.startsWith("week-") ? (
                 <li key={task.id} className="flex items-start gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -85,10 +167,10 @@ export function ActionPlanTab({
                     readOnly
                     className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border accent-primary cursor-default"
                   />
-                  <span className={task.completed ? "line-through text-muted-foreground" : ""}>
-                    {task.label}
-                  </span>
+                  <span>{task.label}</span>
                 </li>
+              ) : (
+                <TaskCheckbox key={task.id} task={task} onToggle={handleToggle} />
               )
             )}
           </ul>

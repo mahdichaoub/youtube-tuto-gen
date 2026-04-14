@@ -1,8 +1,11 @@
 import { generateWithFallback, type GenerateConfig } from "@/lib/models/call";
 import type { ModelConfig } from "./analyst";
 import type { AnalystOutput } from "./analyst";
+import type { ResearcherOutput } from "./researcher";
 
 export interface ActionOutput {
+  hook: string;             // "Given you're building X, here's why this changes everything..."
+  mission_statement: string; // One bold, specific thing to ship today
   markdown: string;
   today: [string, string, string];
   week: [string, string, string];
@@ -11,12 +14,13 @@ export interface ActionOutput {
   metrics: [string, string, string];
 }
 
-const SYSTEM_PROMPT = `You are a senior learning coach who creates hyper-personalized action plans.
+const SYSTEM_PROMPT = `You are a Skool-style learning coach creating a hyper-personalized 24h mission.
 
 You will receive:
 1. A teaching summary from a YouTube video
-2. A structured content analysis
-3. The user's PROJECT CONTEXT — what they are currently building
+2. A structured content analysis with 3 key insights
+3. Research findings with relevant resources
+4. The user's PROJECT CONTEXT — what they are currently building
 
 Your job: create an action plan where EVERY task is impossible to write without knowing BOTH:
 - The specific content of this video
@@ -24,35 +28,38 @@ Your job: create an action plan where EVERY task is impossible to write without 
 
 Generic tasks are CONTRACT VIOLATIONS. Every item must reference specific concepts from the video AND the user's project.
 
-Return ONLY valid JSON with this exact structure:
+Return ONLY valid JSON (no markdown, no code fences):
 {
+  "hook": "string — 'Given you're building [specific project], [specific insight from this video] changes everything because...' (2-3 sentences, energetic, project-specific)",
+  "mission_statement": "string — one bold, concrete thing they can ship or complete TODAY tied to both the video topic and their project",
   "markdown": "string — full action plan in Markdown format",
   "today": ["task1", "task2", "task3"],
   "week": ["task1", "task2", "task3"],
-  "challenge": "string — one 30-day challenge",
+  "challenge": "string — one ambitious 30-day challenge",
   "resources": ["resource1", "resource2", ...],
   "metrics": ["metric1", "metric2", "metric3"]
 }
 
 Rules:
-- today: exactly 3 strings — high-impact tasks doable in 1–2 hours
-- week: exactly 3 strings — deeper tasks for the next 7 days
-- challenge: 1 string — a meaningful 30-day challenge
-- resources: 2–5 strings — specific books, tools, or courses (not vague "read docs")
-- metrics: exactly 3 strings — measurable signals of progress
-- Return ONLY JSON, no markdown code fences, no commentary`;
+- hook: MUST name the user's specific project and reference a specific concept from the video
+- mission_statement: one sentence, concrete and achievable in 2-4 hours, tied to their project
+- today: exactly 3 strings — each must reference a specific video concept AND the user's project
+- week: exactly 3 strings — deeper tasks for the next 7 days, project-specific
+- challenge: 1 string — ambitious but specific to their project
+- resources: 2-5 strings — use researcher's found articles/docs when provided, add others if needed
+- metrics: exactly 3 strings — measurable, specific to their project
+- Return ONLY JSON`;
 
 /**
- * Action agent — creates a project-specific action plan.
+ * Action agent — creates a Skool-style project-specific 24h mission.
  * project_context is passed ONLY to this agent.
- * Validates exact array lengths before returning.
- * Throws on contract violation or model failure.
  */
 export async function runAction(
   teacherMd: string,
   analystOutput: AnalystOutput,
   projectContext: string,
-  modelConfig: ModelConfig
+  modelConfig: ModelConfig,
+  researcherOutput?: ResearcherOutput
 ): Promise<{ data: ActionOutput; usedFallback: boolean }> {
   const config: GenerateConfig = {
     timeoutMs: modelConfig.timeoutMs,
@@ -62,6 +69,14 @@ export async function runAction(
     agentName: "action",
   };
 
+  const resourcesSection = researcherOutput
+    ? `\n## RESEARCH FINDINGS — use these in your resources list
+Concept articles found:
+${researcherOutput.concept_articles.map((a) => `- ${a.title} (${a.url}): ${a.summary}`).join("\n")}
+Project docs found:
+${researcherOutput.project_docs.map((d) => `- ${d.title} (${d.url}): ${d.summary}`).join("\n")}`
+    : "";
+
   const userPrompt = `## PROJECT CONTEXT (what the user is building)
 ${projectContext}
 
@@ -69,15 +84,19 @@ ${projectContext}
 ${teacherMd.slice(0, 3000)}
 
 ## CONTENT ANALYSIS
-Core Concept: ${analystOutput.core_concept}
 Topic: ${analystOutput.topic_category}
+Core Concept: ${analystOutput.core_concept}
 Difficulty: ${analystOutput.estimated_difficulty}
-Key Highlights:
-${analystOutput.key_highlights.map((h, i) => `${i + 1}. ${h}`).join("\n")}
-Mental Models: ${analystOutput.mental_models.join(", ")}
-Warnings: ${analystOutput.warnings_and_mistakes.join(", ")}
 
-Create an action plan where every task connects this specific video content to the user's specific project.`;
+3 Key Insights:
+${analystOutput.key_insights.map((insight, i) =>
+    `${i + 1}. ${insight.claim}\n   Example: ${insight.example}\n   Prevents: ${insight.mistake}`
+  ).join("\n\n")}
+
+Mental Models: ${analystOutput.mental_models.join(", ")}
+Warnings: ${analystOutput.warnings_and_mistakes.join(", ")}${resourcesSection}
+
+Create a 24h mission where every single task connects this specific video content to the user's specific project.`;
 
   const { text, usedFallback } = await generateWithFallback(
     modelConfig.primary,
@@ -100,7 +119,7 @@ Create an action plan where every task connects this specific video content to t
     };
   }
 
-  // Contract validation — exact lengths
+  // Contract validation
   const today = parsed.today;
   const week = parsed.week;
   const metrics = parsed.metrics;
@@ -120,9 +139,17 @@ Create an action plan where every task connects this specific video content to t
   if (typeof parsed.markdown !== "string" || !parsed.markdown.trim()) {
     throw { code: "contract_violation", agent: "action", field: "markdown", reason: "Missing or empty" };
   }
+  if (typeof parsed.hook !== "string" || !parsed.hook.trim()) {
+    throw { code: "contract_violation", agent: "action", field: "hook", reason: "Missing or empty" };
+  }
+  if (typeof parsed.mission_statement !== "string" || !parsed.mission_statement.trim()) {
+    throw { code: "contract_violation", agent: "action", field: "mission_statement", reason: "Missing or empty" };
+  }
 
   return {
     data: {
+      hook: parsed.hook as string,
+      mission_statement: parsed.mission_statement as string,
       markdown: parsed.markdown as string,
       today: today as [string, string, string],
       week: week as [string, string, string],

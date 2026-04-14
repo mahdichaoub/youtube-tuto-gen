@@ -5,21 +5,31 @@ import { loadUserModelConfig } from "@/lib/models/client";
 import { getEmitter, removeEmitter, emitPipelineEvent } from "@/lib/pipeline-emitter";
 import { runFetcher } from "./fetcher";
 import { runAnalyst } from "./analyst";
+import { runResearcher } from "./researcher";
 import { runTeacher } from "./teacher";
 import { runAction } from "./action";
 
+export interface PipelineOptions {
+  depth?: string | null;
+  focus?: string | null;
+  referenceUrl?: string | null;
+  referenceUrlType?: string | null;
+}
+
 /**
  * Orchestrator — the sole relay between agents.
- * Calls loadUserModelConfig once, then runs the 4-agent pipeline sequentially.
+ * Pipeline: Fetcher → Analyst → Researcher → Teacher → Action
  * Emits SSE events for each stage; saves results to DB on completion.
- * Wraps the entire pipeline in a 90-second hard timeout (FR-008).
  */
 export async function runPipeline(
   reportId: string,
   videoUrl: string,
   projectContext: string,
-  userId: string
+  userId: string,
+  options: PipelineOptions = {}
 ): Promise<void> {
+  const { depth = "deep", focus, referenceUrl, referenceUrlType } = options;
+
   // Ensure emitter exists before any async work
   getEmitter(reportId);
 
@@ -38,10 +48,10 @@ export async function runPipeline(
       .set({ status: "analyzing", updatedAt: new Date() })
       .where(and(eq(reports.id, reportId), eq(reports.userId, userId)));
 
-    emitPipelineEvent(reportId, { stage: "fetching", status: "complete", progress: 20 });
+    emitPipelineEvent(reportId, { stage: "fetching", status: "complete", progress: 15 });
 
     // ── Step 2: Analyze ────────────────────────────────────────────────────────
-    emitPipelineEvent(reportId, { stage: "analyzing", status: "running", progress: 20 });
+    emitPipelineEvent(reportId, { stage: "analyzing", status: "running", progress: 15 });
 
     const analystOutput = await runAnalyst(fetcherOutput, mc);
 
@@ -55,7 +65,7 @@ export async function runPipeline(
     await db
       .update(reports)
       .set({
-        status: "teaching",
+        status: "researching",
         title: fetcherOutput.title || null,
         topicCategory: analystOutput.topic_category || null,
         estimatedDifficulty: analystOutput.estimated_difficulty || null,
@@ -63,12 +73,45 @@ export async function runPipeline(
       })
       .where(and(eq(reports.id, reportId), eq(reports.userId, userId)));
 
-    emitPipelineEvent(reportId, { stage: "analyzing", status: "complete", progress: 40 });
+    emitPipelineEvent(reportId, { stage: "analyzing", status: "complete", progress: 30 });
 
-    // ── Step 3: Teach ──────────────────────────────────────────────────────────
-    emitPipelineEvent(reportId, { stage: "teaching", status: "running", progress: 40 });
+    // ── Step 3: Research ───────────────────────────────────────────────────────
+    emitPipelineEvent(reportId, { stage: "researching", status: "running", progress: 30 });
 
-    const teacherOutput = await runTeacher(fetcherOutput, analystOutput, mc);
+    let researcherOutput;
+    try {
+      researcherOutput = await runResearcher(
+        analystOutput,
+        projectContext,
+        referenceUrl,
+        referenceUrlType
+      );
+    } catch (err) {
+      // Researcher failure is non-fatal — log and continue without research
+      console.error("[orchestrator] researcher failed, continuing without research:", err);
+      researcherOutput = undefined;
+    }
+
+    await db
+      .update(reports)
+      .set({ status: "teaching", updatedAt: new Date() })
+      .where(and(eq(reports.id, reportId), eq(reports.userId, userId)));
+
+    emitPipelineEvent(reportId, { stage: "researching", status: "complete", progress: 55 });
+
+    // ── Step 4: Teach ──────────────────────────────────────────────────────────
+    emitPipelineEvent(reportId, { stage: "teaching", status: "running", progress: 55 });
+
+    const teacherOutput = await runTeacher(
+      fetcherOutput,
+      analystOutput,
+      mc,
+      researcherOutput,
+      depth ?? "deep",
+      focus,
+      referenceUrl,
+      referenceUrlType
+    );
 
     if (teacherOutput.usedFallback) {
       emitPipelineEvent(reportId, {
@@ -82,16 +125,17 @@ export async function runPipeline(
       .set({ status: "planning", updatedAt: new Date() })
       .where(and(eq(reports.id, reportId), eq(reports.userId, userId)));
 
-    emitPipelineEvent(reportId, { stage: "teaching", status: "complete", progress: 60 });
+    emitPipelineEvent(reportId, { stage: "teaching", status: "complete", progress: 70 });
 
-    // ── Step 4: Plan ───────────────────────────────────────────────────────────
-    emitPipelineEvent(reportId, { stage: "planning", status: "running", progress: 60 });
+    // ── Step 5: Plan ───────────────────────────────────────────────────────────
+    emitPipelineEvent(reportId, { stage: "planning", status: "running", progress: 70 });
 
     const actionOutput = await runAction(
       teacherOutput.markdown,
       analystOutput,
       projectContext,
-      mc
+      mc,
+      researcherOutput
     );
 
     if (actionOutput.usedFallback) {
@@ -101,29 +145,56 @@ export async function runPipeline(
       });
     }
 
-    emitPipelineEvent(reportId, { stage: "planning", status: "complete", progress: 80 });
+    emitPipelineEvent(reportId, { stage: "planning", status: "complete", progress: 85 });
 
-    // ── Step 5: Save ───────────────────────────────────────────────────────────
-    emitPipelineEvent(reportId, { stage: "saving", status: "running", progress: 80 });
+    // ── Step 6: Save ───────────────────────────────────────────────────────────
+    emitPipelineEvent(reportId, { stage: "saving", status: "running", progress: 85 });
 
-    // Save 5 report sections
-    const sectionRows = [
+    // Build section rows — new Skool-style format
+    const sectionRows: { reportId: string; sectionType: string; contentJson: Record<string, unknown> }[] = [
+      // concept: big idea + hook + enriched explanation
       {
         reportId,
         sectionType: "concept",
         contentJson: {
+          hook: analystOutput.hook,
           core_concept: analystOutput.core_concept,
-          explanation: teacherOutput.markdown
-            .split("## 🧠 What This Is Really About")[1]
-            ?.split("##")[0]
-            ?.trim() ?? analystOutput.core_concept,
+          big_idea_prompt: analystOutput.big_idea_prompt,
+          explanation: (() => {
+            const text = teacherOutput.markdown;
+            const start = text.indexOf("## 💡 The Big Idea");
+            const end = text.indexOf("## ⚡", start);
+            if (start === -1) return analystOutput.core_concept;
+            return end !== -1
+              ? text.slice(start + "## 💡 The Big Idea".length, end).trim()
+              : text.slice(start + "## 💡 The Big Idea".length).trim();
+          })(),
+          why_matters: (() => {
+            const text = teacherOutput.markdown;
+            const start = text.indexOf("## 🔥 Why This Matters To You");
+            const end = text.indexOf("## 💡", start);
+            if (start === -1) return "";
+            return end !== -1
+              ? text.slice(start + "## 🔥 Why This Matters To You".length, end).trim()
+              : text.slice(start + "## 🔥 Why This Matters To You".length).trim();
+          })(),
         },
       },
+      // insights: new 3-insight Skool format
+      {
+        reportId,
+        sectionType: "insights",
+        contentJson: {
+          items: analystOutput.key_insights,
+        },
+      },
+      // highlights: kept for backward compat
       {
         reportId,
         sectionType: "highlights",
         contentJson: { items: analystOutput.key_highlights },
       },
+      // models: mental models
       {
         reportId,
         sectionType: "models",
@@ -134,17 +205,32 @@ export async function runPipeline(
           })),
         },
       },
+      // examples
       {
         reportId,
         sectionType: "examples",
         contentJson: { items: analystOutput.examples_used },
       },
+      // actions: mission-style
       {
         reportId,
         sectionType: "actions",
-        contentJson: actionOutput.data,
+        contentJson: actionOutput.data as unknown as Record<string, unknown>,
       },
     ];
+
+    // Add research section if available
+    if (researcherOutput) {
+      sectionRows.push({
+        reportId,
+        sectionType: "research",
+        contentJson: {
+          concept_articles: researcherOutput.concept_articles,
+          project_docs: researcherOutput.project_docs,
+          enriched_explanation: researcherOutput.enriched_explanation,
+        },
+      });
+    }
 
     await db.insert(reportSections).values(sectionRows);
 
@@ -179,14 +265,15 @@ export async function runPipeline(
     removeEmitter(reportId);
   };
 
-  // 90-second hard ceiling (FR-008)
+  // 3-minute hard ceiling (researcher adds time)
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("pipeline_timeout")), 90_000)
+    setTimeout(() => reject(new Error("pipeline_timeout")), 240_000)
   );
 
   try {
     await Promise.race([pipeline(), timeout]);
   } catch (err) {
+    console.error("[orchestrator] pipeline error:", JSON.stringify(err, null, 2), err instanceof Error ? err.stack : "");
     const code =
       typeof err === "object" && err !== null && "code" in err
         ? (err as { code: string }).code
