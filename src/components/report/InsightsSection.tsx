@@ -53,14 +53,23 @@ export function InsightsSection({ insights }: InsightsSectionProps) {
               {hasExpansion && (
                 <>
                   <button
+                    type="button"
                     onClick={() => setOpenIndex(isOpen ? null : i)}
                     className="text-xs font-medium text-primary hover:underline mt-1 flex items-center gap-1"
                   >
-                    {isOpen ? "Hide" : "How to apply"}{" "}
-                    <span className={`transition-transform inline-block ${isOpen ? "rotate-90" : ""}`}>›</span>
+                    How to apply{" "}
+                    <span
+                      className="inline-block transition-transform duration-200"
+                      style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}
+                    >
+                      ›
+                    </span>
                   </button>
 
-                  {isOpen && (
+                  <div
+                    className="overflow-hidden transition-all duration-200"
+                    style={{ maxHeight: isOpen ? "500px" : "0px" }}
+                  >
                     <div className="mt-2 space-y-2 border-t border-border pt-2">
                       {insight.deep_dive && (
                         <p className="text-xs text-muted-foreground leading-relaxed italic">
@@ -80,7 +89,7 @@ export function InsightsSection({ insights }: InsightsSectionProps) {
                         </ol>
                       )}
                     </div>
-                  )}
+                  </div>
                 </>
               )}
             </div>
