@@ -3,16 +3,30 @@ import type { ModelConfig } from "./analyst";
 import type { AnalystOutput } from "./analyst";
 import type { ResearcherOutput } from "./researcher";
 
+export interface RichTask {
+  label: string;
+  explanation: string;  // 1-2 sentences on why this task matters for their project
+  steps: string[];      // how-to steps (count driven by detailLevel)
+}
+
 export interface ActionOutput {
   hook: string;             // "Given you're building X, here's why this changes everything..."
   mission_statement: string; // One bold, specific thing to ship today
   markdown: string;
-  today: [string, string, string];
-  week: [string, string, string];
+  today: [RichTask, RichTask, RichTask];
+  week: [RichTask, RichTask, RichTask];
   challenge: string;
   resources: string[];
   metrics: [string, string, string];
 }
+
+const DETAIL_STEP_COUNT: Record<number, number> = {
+  1: 2,
+  2: 3,
+  3: 4,
+  4: 6,
+  5: 8,
+};
 
 const SYSTEM_PROMPT = `You are a Skool-style learning coach creating a hyper-personalized 24h mission.
 
@@ -21,6 +35,7 @@ You will receive:
 2. A structured content analysis with 3 key insights
 3. Research findings with relevant resources
 4. The user's PROJECT CONTEXT — what they are currently building
+5. STEP COUNT — how many how-to steps to write per task
 
 Your job: create an action plan where EVERY task is impossible to write without knowing BOTH:
 - The specific content of this video
@@ -33,8 +48,20 @@ Return ONLY valid JSON (no markdown, no code fences):
   "hook": "string — 'Given you're building [specific project], [specific insight from this video] changes everything because...' (2-3 sentences, energetic, project-specific)",
   "mission_statement": "string — one bold, concrete thing they can ship or complete TODAY tied to both the video topic and their project",
   "markdown": "string — full action plan in Markdown format",
-  "today": ["task1", "task2", "task3"],
-  "week": ["task1", "task2", "task3"],
+  "today": [
+    {
+      "label": "string — short task title (max 10 words)",
+      "explanation": "string — 1-2 sentences on WHY this task matters for their specific project, referencing the video concept",
+      "steps": ["Step 1: ...", "Step 2: ...", ...]
+    }
+  ],
+  "week": [
+    {
+      "label": "string — short task title (max 10 words)",
+      "explanation": "string — 1-2 sentences on WHY this task matters for their specific project",
+      "steps": ["Step 1: ...", "Step 2: ...", ...]
+    }
+  ],
   "challenge": "string — one ambitious 30-day challenge",
   "resources": ["resource1", "resource2", ...],
   "metrics": ["metric1", "metric2", "metric3"]
@@ -43,11 +70,12 @@ Return ONLY valid JSON (no markdown, no code fences):
 Rules:
 - hook: MUST name the user's specific project and reference a specific concept from the video
 - mission_statement: one sentence, concrete and achievable in 2-4 hours, tied to their project
-- today: exactly 3 strings — each must reference a specific video concept AND the user's project
-- week: exactly 3 strings — deeper tasks for the next 7 days, project-specific
+- today: EXACTLY 3 objects — each label must reference a specific video concept AND the user's project
+- week: EXACTLY 3 objects — deeper tasks for the next 7 days, project-specific
+- steps: EXACTLY the number specified in STEP COUNT — make each step concrete and actionable
 - challenge: 1 string — ambitious but specific to their project
-- resources: 2-5 strings — use researcher's found articles/docs when provided, add others if needed
-- metrics: exactly 3 strings — measurable, specific to their project
+- resources: 2-5 strings — use researcher's found articles/docs when provided
+- metrics: EXACTLY 3 strings — measurable, specific to their project
 - Return ONLY JSON`;
 
 /**
@@ -59,7 +87,8 @@ export async function runAction(
   analystOutput: AnalystOutput,
   projectContext: string,
   modelConfig: ModelConfig,
-  researcherOutput?: ResearcherOutput
+  researcherOutput?: ResearcherOutput,
+  detailLevel = 3
 ): Promise<{ data: ActionOutput; usedFallback: boolean }> {
   const config: GenerateConfig = {
     timeoutMs: modelConfig.timeoutMs,
@@ -77,7 +106,11 @@ Project docs found:
 ${researcherOutput.project_docs.map((d) => `- ${d.title} (${d.url}): ${d.summary}`).join("\n")}`
     : "";
 
-  const userPrompt = `## PROJECT CONTEXT (what the user is building)
+  const stepCount = DETAIL_STEP_COUNT[detailLevel] ?? 4;
+
+  const userPrompt = `STEP COUNT: Write exactly ${stepCount} steps per task.
+
+## PROJECT CONTEXT (what the user is building)
 ${projectContext}
 
 ## VIDEO SUMMARY
@@ -130,6 +163,23 @@ Create a 24h mission where every single task connects this specific video conten
   if (!Array.isArray(week) || week.length !== 3) {
     throw { code: "contract_violation", agent: "action", field: "week", reason: `Expected 3 items, got ${Array.isArray(week) ? week.length : "non-array"}` };
   }
+
+  // Validate each task object
+  for (const [listName, list] of [["today", today], ["week", week]] as [string, unknown[]][]) {
+    for (let i = 0; i < list.length; i++) {
+      const task = list[i] as Record<string, unknown>;
+      if (typeof task.label !== "string" || !task.label.trim()) {
+        throw { code: "contract_violation", agent: "action", field: `${listName}[${i}].label`, reason: "Missing or empty" };
+      }
+      if (typeof task.explanation !== "string" || !task.explanation.trim()) {
+        throw { code: "contract_violation", agent: "action", field: `${listName}[${i}].explanation`, reason: "Missing or empty" };
+      }
+      if (!Array.isArray(task.steps) || (task.steps as string[]).length < 1) {
+        throw { code: "contract_violation", agent: "action", field: `${listName}[${i}].steps`, reason: "Must be array with at least 1 item" };
+      }
+    }
+  }
+
   if (!Array.isArray(metrics) || metrics.length !== 3) {
     throw { code: "contract_violation", agent: "action", field: "metrics", reason: `Expected 3 items, got ${Array.isArray(metrics) ? metrics.length : "non-array"}` };
   }
@@ -151,8 +201,8 @@ Create a 24h mission where every single task connects this specific video conten
       hook: parsed.hook as string,
       mission_statement: parsed.mission_statement as string,
       markdown: parsed.markdown as string,
-      today: today as [string, string, string],
-      week: week as [string, string, string],
+      today: today as [RichTask, RichTask, RichTask],
+      week: week as [RichTask, RichTask, RichTask],
       challenge: parsed.challenge as string,
       resources: (parsed.resources as string[]) ?? [],
       metrics: metrics as [string, string, string],
