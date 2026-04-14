@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { reports, reportSections, tasks } from "@/lib/schema";
+import { reports, reportSections, tasks, userPreferences } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { loadUserModelConfig } from "@/lib/models/client";
 import { getEmitter, removeEmitter, emitPipelineEvent } from "@/lib/pipeline-emitter";
@@ -37,6 +37,12 @@ export async function runPipeline(
     // Load model config once
     const modelConfig = await loadUserModelConfig(userId);
     const mc = { ...modelConfig, userId, reportId };
+
+    // Fetch user detail level preference (default 3)
+    const prefRow = await db.query.userPreferences.findFirst({
+      where: eq(userPreferences.userId, userId),
+    });
+    const detailLevel = prefRow?.detailLevel ?? 3;
 
     // ── Step 1: Fetch ──────────────────────────────────────────────────────────
     emitPipelineEvent(reportId, { stage: "fetching", status: "running", progress: 0 });
@@ -135,7 +141,8 @@ export async function runPipeline(
       analystOutput,
       projectContext,
       mc,
-      researcherOutput
+      researcherOutput,
+      detailLevel
     );
 
     if (actionOutput.usedFallback) {
@@ -160,6 +167,8 @@ export async function runPipeline(
           hook: analystOutput.hook,
           core_concept: analystOutput.core_concept,
           big_idea_prompt: analystOutput.big_idea_prompt,
+          analogy: analystOutput.analogy,
+          common_mistake: analystOutput.common_mistake,
           explanation: (() => {
             const text = teacherOutput.markdown;
             const start = text.indexOf("## 💡 The Big Idea");
@@ -236,16 +245,16 @@ export async function runPipeline(
 
     // Save tasks from action plan
     const taskRows = [
-      ...actionOutput.data.today.map((label) => ({
+      ...actionOutput.data.today.map((task) => ({
         reportId,
         userId,
-        label,
+        label: task.label,
         scope: "today" as const,
       })),
-      ...actionOutput.data.week.map((label) => ({
+      ...actionOutput.data.week.map((task) => ({
         reportId,
         userId,
-        label,
+        label: task.label,
         scope: "week" as const,
       })),
     ];
