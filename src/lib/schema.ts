@@ -187,7 +187,7 @@ export const userPreferences = pgTable("user_preferences", {
     .references(() => user.id, { onDelete: "cascade" }),
   detailLevel: integer("detail_level").notNull().default(3),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()).notNull(),
 });
 
 // ─── LearnAgent Model Selection Tables ────────────────────────────────────────
