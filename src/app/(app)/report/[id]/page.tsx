@@ -14,6 +14,8 @@ interface KeyInsight {
   claim: string;
   example: string;
   mistake: string;
+  deep_dive?: string;
+  how_to_apply?: string[];
 }
 
 interface ResearchData {
@@ -40,6 +42,8 @@ interface ReportData {
       big_idea_prompt?: string;
       explanation: string;
       why_matters?: string;
+      analogy?: string;
+      common_mistake?: string;
     };
     insights?: { items: KeyInsight[] };
     highlights?: { items: string[] };
@@ -122,7 +126,9 @@ export default function ReportPage({
         <BigIdeaSection
           coreConcept={concept.core_concept}
           explanation={concept.explanation}
-          bigIdeaPrompt={concept.big_idea_prompt}
+          {...(concept.big_idea_prompt !== undefined && { bigIdeaPrompt: concept.big_idea_prompt })}
+          {...(concept.analogy !== undefined && { analogy: concept.analogy })}
+          {...(concept.common_mistake !== undefined && { commonMistake: concept.common_mistake })}
         />
       )}
 
