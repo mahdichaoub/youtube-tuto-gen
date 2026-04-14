@@ -8,7 +8,7 @@ const ACCENT_COLORS = [
   "border-l-pink-500",
 ];
 
-interface KeyInsight {
+export interface KeyInsight {
   claim: string;
   example: string;
   mistake: string;

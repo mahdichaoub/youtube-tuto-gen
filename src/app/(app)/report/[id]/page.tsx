@@ -9,14 +9,7 @@ import { InsightsSection } from "@/components/report/InsightsSection";
 import { ResearchLinksSection } from "@/components/report/ResearchLinksSection";
 import { MissionSection } from "@/components/report/MissionSection";
 import type { ActionOutput, TaskItem } from "@/components/report/MissionSection";
-
-interface KeyInsight {
-  claim: string;
-  example: string;
-  mistake: string;
-  deep_dive?: string;
-  how_to_apply?: string[];
-}
+import type { KeyInsight } from "@/components/report/InsightsSection";
 
 interface ResearchData {
   concept_articles: { title: string; url: string; summary: string; source_type: string }[];
