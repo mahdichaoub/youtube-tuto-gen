@@ -171,6 +171,18 @@ ${truncatedTranscript}`;
   const insightArray = insights as Record<string, unknown>[];
   for (let i = 0; i < insightArray.length; i++) {
     const insight = insightArray[i] as Record<string, unknown>;
+    // Validate pre-existing fields
+    for (const field of ["claim", "example", "mistake"] as const) {
+      if (typeof insight[field] !== "string" || !(insight[field] as string).trim()) {
+        throw {
+          code: "contract_violation",
+          agent: "analyst",
+          field: `key_insights[${i}].${field}`,
+          reason: "Missing or empty",
+        };
+      }
+    }
+    // Validate new enrichment fields
     if (typeof insight["deep_dive"] !== "string" || !(insight["deep_dive"] as string).trim()) {
       throw {
         code: "contract_violation",
@@ -179,12 +191,13 @@ ${truncatedTranscript}`;
         reason: "Missing or empty",
       };
     }
-    if (!Array.isArray(insight["how_to_apply"]) || (insight["how_to_apply"] as string[]).length < 2) {
+    const howToApply = insight["how_to_apply"] as string[];
+    if (!Array.isArray(howToApply) || howToApply.length < 2 || howToApply.length > 6) {
       throw {
         code: "contract_violation",
         agent: "analyst",
         field: `key_insights[${i}].how_to_apply`,
-        reason: "Must be array with at least 2 items",
+        reason: "Must be array with 2–6 items",
       };
     }
   }
