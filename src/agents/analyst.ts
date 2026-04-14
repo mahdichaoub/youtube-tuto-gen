@@ -12,18 +12,22 @@ export interface ModelConfig {
 }
 
 export interface KeyInsight {
-  claim: string;    // Bold, counter-intuitive statement
-  example: string;  // Concrete example from the video
-  mistake: string;  // The mistake this insight prevents
+  claim: string;
+  example: string;
+  mistake: string;
+  deep_dive: string;       // 2–3 sentences on WHY the claim is true
+  how_to_apply: string[];  // 2–4 concrete steps to apply to the user's build
 }
 
 export interface AnalystOutput {
   video_id: string;
-  hook: string;           // 1-2 sentences: why this topic matters RIGHT NOW
-  core_concept: string;   // The big idea in one punchy sentence
-  big_idea_prompt: string; // A provocative question the teacher should answer
-  key_insights: KeyInsight[]; // Exactly 3 counter-intuitive insights
-  key_highlights: string[]; // Kept for backward compat — mirrors insight claims
+  hook: string;
+  core_concept: string;
+  big_idea_prompt: string;
+  analogy: string;           // NEW: one analogy that makes the core concept click
+  common_mistake: string;    // NEW: the most common mistake people make with this concept
+  key_insights: KeyInsight[];
+  key_highlights: string[];
   mental_models: string[];
   examples_used: string[];
   warnings_and_mistakes: string[];
@@ -41,11 +45,15 @@ Return ONLY valid JSON with these exact fields:
   "hook": "string — 1-2 punchy sentences on why this topic matters RIGHT NOW for developers/builders",
   "core_concept": "string — the big idea in one bold, memorable sentence (not a bland summary)",
   "big_idea_prompt": "string — a provocative question or statement the teacher should answer (e.g. 'Why do most developers get this completely backwards?')",
+  "analogy": "string — one concrete analogy that makes the core concept immediately click (e.g. 'This is like a traffic light for your data pipeline — it stops everything when the signal is wrong')",
+  "common_mistake": "string — the single most common mistake developers make with this concept and why it happens",
   "key_insights": [
     {
       "claim": "string — a bold, counter-intuitive statement (start with a strong verb or 'Most people...')",
       "example": "string — a concrete, specific example from the video that proves the claim",
-      "mistake": "string — the common mistake this insight prevents"
+      "mistake": "string — the common mistake this insight prevents",
+      "deep_dive": "string — 2-3 sentences explaining WHY this claim is true at a deeper level",
+      "how_to_apply": ["string — step 1", "string — step 2", "string — step 3"]
     }
   ],
   "mental_models": ["string", ...],
@@ -58,6 +66,9 @@ Return ONLY valid JSON with these exact fields:
 
 Rules:
 - key_insights: EXACTLY 3 items — each must be counter-intuitive, not obvious
+- each insight MUST include deep_dive (2-3 sentences) and how_to_apply (2-4 steps)
+- analogy: concrete and memorable, not generic — make it specific to the domain
+- common_mistake: one sentence describing the mistake, one sentence explaining why it happens
 - hook: energetic and direct, like a Skool post opener — NO generic phrases like "In today's video..."
 - core_concept: punchy and memorable, not academic
 - All fields are required
@@ -143,6 +154,41 @@ ${truncatedTranscript}`;
     }
   }
 
+  // Validate new required string fields
+  const newRequiredStrings = ["analogy", "common_mistake"];
+  for (const field of newRequiredStrings) {
+    if (typeof parsed[field] !== "string" || !(parsed[field] as string).trim()) {
+      throw {
+        code: "contract_violation",
+        agent: "analyst",
+        field,
+        reason: "Missing or empty string",
+      };
+    }
+  }
+
+  // Validate deep_dive and how_to_apply on each insight
+  const insightArray = insights as Record<string, unknown>[];
+  for (let i = 0; i < insightArray.length; i++) {
+    const insight = insightArray[i] as Record<string, unknown>;
+    if (typeof insight["deep_dive"] !== "string" || !(insight["deep_dive"] as string).trim()) {
+      throw {
+        code: "contract_violation",
+        agent: "analyst",
+        field: `key_insights[${i}].deep_dive`,
+        reason: "Missing or empty",
+      };
+    }
+    if (!Array.isArray(insight["how_to_apply"]) || (insight["how_to_apply"] as string[]).length < 2) {
+      throw {
+        code: "contract_violation",
+        agent: "analyst",
+        field: `key_insights[${i}].how_to_apply`,
+        reason: "Must be array with at least 2 items",
+      };
+    }
+  }
+
   const keyInsights = insights as KeyInsight[];
 
   return {
@@ -150,8 +196,9 @@ ${truncatedTranscript}`;
     hook: parsed.hook as string,
     core_concept: parsed.core_concept as string,
     big_idea_prompt: parsed.big_idea_prompt as string,
+    analogy: parsed.analogy as string,
+    common_mistake: parsed.common_mistake as string,
     key_insights: keyInsights,
-    // Backward compat: mirror insight claims as key_highlights
     key_highlights: keyInsights.map((i) => i.claim),
     mental_models: (parsed.mental_models as string[]) ?? [],
     examples_used: (parsed.examples_used as string[]) ?? [],
