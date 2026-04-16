@@ -51,6 +51,10 @@ export async function runResearcher(
   referenceUrl?: string | null,
   referenceUrlType?: string | null
 ): Promise<ResearcherOutput> {
+  // Fast-fail if ANTHROPIC_API_KEY is not configured — orchestrator handles this as non-fatal
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    throw new Error("ANTHROPIC_API_KEY not configured — researcher skipped");
+  }
   const referenceNote =
     referenceUrl && referenceUrlType === "extra_reading"
       ? `\nExtra reading the user provided: ${referenceUrl} — please fetch and summarize this too.`
