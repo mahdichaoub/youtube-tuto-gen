@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { reports, reportSections, tasks, userPreferences } from "@/lib/schema";
+import { reports, reportSections, tasks } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { loadUserModelConfig } from "@/lib/models/client";
 import { getEmitter, removeEmitter, emitPipelineEvent } from "@/lib/pipeline-emitter";
@@ -11,6 +11,8 @@ import { runAction } from "./action";
 
 export interface PipelineOptions {
   depth?: string | null;
+  detailLevel?: number | null;
+  expertiseLevel?: string | null;
   focus?: string | null;
   referenceUrl?: string | null;
   referenceUrlType?: string | null;
@@ -28,21 +30,24 @@ export async function runPipeline(
   userId: string,
   options: PipelineOptions = {}
 ): Promise<void> {
-  const { depth = "deep", focus, referenceUrl, referenceUrlType } = options;
+  const {
+    depth = "deep",
+    detailLevel: optionsDetailLevel,
+    expertiseLevel: optionsExpertiseLevel,
+    focus,
+    referenceUrl,
+    referenceUrlType,
+  } = options;
 
   // Ensure emitter exists before any async work
   getEmitter(reportId);
 
   const pipeline = async () => {
-    // Load model config and user preferences in parallel
-    const [modelConfig, prefRow] = await Promise.all([
-      loadUserModelConfig(userId),
-      db.query.userPreferences.findFirst({
-        where: eq(userPreferences.userId, userId),
-      }),
-    ]);
+    const modelConfig = await loadUserModelConfig(userId);
     const mc = { ...modelConfig, userId, reportId };
-    const detailLevel = prefRow?.detailLevel ?? 3;
+    // Use per-report values passed from the API route (fall back to safe defaults)
+    const detailLevel = optionsDetailLevel ?? 3;
+    const expertiseLevel = (optionsExpertiseLevel ?? "intermediate") as "beginner" | "intermediate" | "advanced";
 
     // ── Step 1: Fetch ──────────────────────────────────────────────────────────
     emitPipelineEvent(reportId, { stage: "fetching", status: "running", progress: 0 });
@@ -59,7 +64,7 @@ export async function runPipeline(
     // ── Step 2: Analyze ────────────────────────────────────────────────────────
     emitPipelineEvent(reportId, { stage: "analyzing", status: "running", progress: 15 });
 
-    const analystOutput = await runAnalyst(fetcherOutput, mc);
+    const analystOutput = await runAnalyst(fetcherOutput, mc, expertiseLevel);
 
     if (analystOutput.usedFallback) {
       emitPipelineEvent(reportId, {
@@ -90,7 +95,8 @@ export async function runPipeline(
         analystOutput,
         projectContext,
         referenceUrl,
-        referenceUrlType
+        referenceUrlType,
+        mc
       );
     } catch (err) {
       // Researcher failure is non-fatal — log and continue without research
@@ -114,6 +120,7 @@ export async function runPipeline(
       mc,
       researcherOutput,
       depth ?? "deep",
+      expertiseLevel,
       focus,
       referenceUrl,
       referenceUrlType
@@ -136,30 +143,12 @@ export async function runPipeline(
     // ── Step 5: Plan ───────────────────────────────────────────────────────────
     emitPipelineEvent(reportId, { stage: "planning", status: "running", progress: 70 });
 
-    const actionOutput = await runAction(
-      teacherOutput.markdown,
-      analystOutput,
-      projectContext,
-      mc,
-      researcherOutput,
-      detailLevel
-    );
+    // ── Save teacher sections immediately — before action runs ─────────────────
+    // Concept, insights, models, examples, research are all available now.
+    // Saving them here means a partial report is always accessible if action fails.
+    type SectionRow = { reportId: string; sectionType: string; contentJson: Record<string, unknown> };
 
-    if (actionOutput.usedFallback) {
-      emitPipelineEvent(reportId, {
-        type: "warning",
-        message: "Switched to your backup model for this step",
-      });
-    }
-
-    emitPipelineEvent(reportId, { stage: "planning", status: "complete", progress: 85 });
-
-    // ── Step 6: Save ───────────────────────────────────────────────────────────
-    emitPipelineEvent(reportId, { stage: "saving", status: "running", progress: 85 });
-
-    // Build section rows — new Skool-style format
-    const sectionRows: { reportId: string; sectionType: string; contentJson: Record<string, unknown> }[] = [
-      // concept: big idea + hook + enriched explanation
+    const teacherSectionRows: SectionRow[] = [
       {
         reportId,
         sectionType: "concept",
@@ -189,21 +178,16 @@ export async function runPipeline(
           })(),
         },
       },
-      // insights: new 3-insight Skool format
       {
         reportId,
         sectionType: "insights",
-        contentJson: {
-          items: analystOutput.key_insights,
-        },
+        contentJson: { items: analystOutput.key_insights },
       },
-      // highlights: kept for backward compat
       {
         reportId,
         sectionType: "highlights",
         contentJson: { items: analystOutput.key_highlights },
       },
-      // models: mental models
       {
         reportId,
         sectionType: "models",
@@ -214,23 +198,15 @@ export async function runPipeline(
           })),
         },
       },
-      // examples
       {
         reportId,
         sectionType: "examples",
         contentJson: { items: analystOutput.examples_used },
       },
-      // actions: mission-style
-      {
-        reportId,
-        sectionType: "actions",
-        contentJson: actionOutput.data as unknown as Record<string, unknown>,
-      },
     ];
 
-    // Add research section if available
     if (researcherOutput) {
-      sectionRows.push({
+      teacherSectionRows.push({
         reportId,
         sectionType: "research",
         contentJson: {
@@ -241,32 +217,70 @@ export async function runPipeline(
       });
     }
 
-    await db.insert(reportSections).values(sectionRows);
+    await db.insert(reportSections).values(teacherSectionRows);
 
-    // Save tasks from action plan
-    const taskRows = [
-      ...actionOutput.data.today.map((task) => ({
-        reportId,
-        userId,
-        label: task.label,
-        scope: "today" as const,
-      })),
-      ...actionOutput.data.week.map((task) => ({
-        reportId,
-        userId,
-        label: task.label,
-        scope: "week" as const,
-      })),
-    ];
-
-    if (taskRows.length > 0) {
-      await db.insert(tasks).values(taskRows);
+    // ── Run action — treated as best-effort ───────────────────────────────────
+    let actionOutput: Awaited<ReturnType<typeof runAction>> | null = null;
+    try {
+      actionOutput = await runAction(
+        teacherOutput.markdown,
+        analystOutput,
+        projectContext,
+        mc,
+        researcherOutput,
+        detailLevel,
+        expertiseLevel
+      );
+      if (actionOutput.usedFallback) {
+        emitPipelineEvent(reportId, {
+          type: "warning",
+          message: "Switched to your backup model for this step",
+        });
+      }
+    } catch (err) {
+      // Action failure is non-fatal — report is still useful without the action plan
+      console.error("[orchestrator] action agent failed, saving partial report:", err);
     }
 
-    // Mark report complete
+    emitPipelineEvent(reportId, { stage: "planning", status: "complete", progress: 85 });
+
+    // ── Step 6: Save action + tasks (if available) ─────────────────────────────
+    emitPipelineEvent(reportId, { stage: "saving", status: "running", progress: 85 });
+
+    if (actionOutput) {
+      await db.insert(reportSections).values([
+        {
+          reportId,
+          sectionType: "actions",
+          contentJson: actionOutput.data as unknown as Record<string, unknown>,
+        },
+      ]);
+
+      const taskRows = [
+        ...actionOutput.data.today.map((task) => ({
+          reportId,
+          userId,
+          label: task.label,
+          scope: "today" as const,
+        })),
+        ...actionOutput.data.week.map((task) => ({
+          reportId,
+          userId,
+          label: task.label,
+          scope: "week" as const,
+        })),
+      ];
+
+      if (taskRows.length > 0) {
+        await db.insert(tasks).values(taskRows);
+      }
+    }
+
+    const finalStatus = actionOutput ? "complete" : "partial";
+
     await db
       .update(reports)
-      .set({ status: "complete", updatedAt: new Date() })
+      .set({ status: finalStatus, updatedAt: new Date() })
       .where(and(eq(reports.id, reportId), eq(reports.userId, userId)));
 
     emitPipelineEvent(reportId, { stage: "saving", status: "complete", progress: 100 });
@@ -274,9 +288,9 @@ export async function runPipeline(
     removeEmitter(reportId);
   };
 
-  // 3-minute hard ceiling (researcher adds time)
+  // 7-minute hard ceiling for full sequential pipeline
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("pipeline_timeout")), 240_000)
+    setTimeout(() => reject(new Error("pipeline_timeout")), 420_000)
   );
 
   try {

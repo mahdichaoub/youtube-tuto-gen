@@ -113,6 +113,9 @@ export const reports = pgTable(
     focus: text("focus"),                                      // optional free-text focus instruction
     referenceUrl: text("reference_url"),                       // optional reference URL
     referenceUrlType: text("reference_url_type"),              // style_guide | extra_reading | project_context
+    // Personalization fields — set by user at submission time
+    detailLevel: integer("detail_level").notNull().default(3), // 1 (essentials) → 5 (deep dive)
+    expertiseLevel: text("expertise_level").notNull().default("intermediate"), // beginner | intermediate | advanced
     // Internal status values — NEVER display verbatim in UI
     // lifecycle: fetching → analyzing → researching → teaching → planning → complete | failed
     status: text("status").notNull().default("fetching"),

@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
     url?: string;
     project_context?: string;
     depth?: string;
+    detail_level?: number;
+    expertise_level?: string;
     focus?: string;
     reference_url?: string;
     reference_url_type?: string;
@@ -29,11 +31,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  const { url, project_context, depth, focus, reference_url, reference_url_type } = body;
+  const { url, project_context, depth, detail_level, expertise_level, focus, reference_url, reference_url_type } = body;
 
   // Validate depth if provided
   const validDepths = ["quick", "deep", "expert"];
   const resolvedDepth = validDepths.includes(depth ?? "") ? depth! : "deep";
+
+  // Validate detail_level (1-5, default 3)
+  const resolvedDetailLevel =
+    typeof detail_level === "number" && detail_level >= 1 && detail_level <= 5
+      ? Math.round(detail_level)
+      : 3;
+
+  // Validate expertise_level
+  const validExpertiseLevels = ["beginner", "intermediate", "advanced"];
+  const resolvedExpertiseLevel = validExpertiseLevels.includes(expertise_level ?? "")
+    ? expertise_level!
+    : "intermediate";
 
   // 3. Validate URL
   const videoId = extractVideoId(url ?? "");
@@ -86,6 +100,8 @@ export async function POST(req: NextRequest) {
       videoUrl: url!,
       projectContext: project_context.trim(),
       depth: resolvedDepth,
+      detailLevel: resolvedDetailLevel,
+      expertiseLevel: resolvedExpertiseLevel,
       focus: focus?.trim() || null,
       referenceUrl: reference_url?.trim() || null,
       referenceUrlType: reference_url_type || null,
@@ -101,6 +117,8 @@ export async function POST(req: NextRequest) {
   // 7. Fire-and-forget pipeline
   runPipeline(newReport.id, url!, project_context.trim(), session.user.id, {
     depth: resolvedDepth,
+    detailLevel: resolvedDetailLevel,
+    expertiseLevel: resolvedExpertiseLevel,
     focus: focus?.trim() || null,
     referenceUrl: reference_url?.trim() || null,
     referenceUrlType: reference_url_type || null,

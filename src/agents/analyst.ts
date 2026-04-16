@@ -37,7 +37,17 @@ export interface AnalystOutput {
   usedFallback: boolean;
 }
 
-const SYSTEM_PROMPT = `You are a learning analyst extracting content from a YouTube video for a Skool-style learning experience.
+const EXPERTISE_ANALYST_INSTRUCTIONS: Record<string, string> = {
+  beginner: "The learner is a BEGINNER. Use plain language, avoid jargon (or define it immediately), use simple analogies, and assume no prior knowledge of this topic.",
+  intermediate: "The learner has INTERMEDIATE experience. You can use standard terminology, assume basic familiarity with the domain, and introduce nuance without over-explaining basics.",
+  advanced: "The learner is ADVANCED. Be precise, use correct technical terminology, surface non-obvious edge cases and trade-offs, and skip beginner-level explanations.",
+};
+
+function buildAnalystSystemPrompt(expertiseLevel: string): string {
+  const expertiseInstruction = EXPERTISE_ANALYST_INSTRUCTIONS[expertiseLevel] ?? EXPERTISE_ANALYST_INSTRUCTIONS.intermediate;
+  return `You are a learning analyst extracting content from a YouTube video for a Skool-style learning experience.
+
+LEARNER LEVEL: ${expertiseInstruction}
 
 Return ONLY valid JSON with these exact fields:
 {
@@ -72,7 +82,47 @@ Rules:
 - hook: energetic and direct, like a Skool post opener — NO generic phrases like "In today's video..."
 - core_concept: punchy and memorable, not academic
 - All fields are required
-- Return ONLY JSON, no markdown, no code fences`;
+- Return ONLY JSON, no markdown, no code fences
+
+EXAMPLE OUTPUT (copy this exact structure, replace all values with content from the actual video):
+{
+  "video_id": "abc123",
+  "hook": "React Server Components just made 80% of your useEffect calls obsolete — and most devs are still writing them anyway.",
+  "core_concept": "Server Components let you run React on the server without sending any JS to the client.",
+  "big_idea_prompt": "Why do most developers reach for useEffect when the server was the right answer all along?",
+  "analogy": "Server Components are like a chef who preps your meal in the kitchen before it arrives — the diner never sees the cooking, just the result.",
+  "common_mistake": "Developers add 'use client' to everything because it feels safer. It happens because the mental model of React as a client-side library is deeply ingrained.",
+  "key_insights": [
+    {
+      "claim": "Most data fetching in React apps should never touch the client at all.",
+      "example": "The video shows a dashboard that cut its JS bundle by 60% by moving all db queries to Server Components.",
+      "mistake": "Fetching data in useEffect causes unnecessary waterfalls and exposes your data layer to the client.",
+      "deep_dive": "When you fetch in a Server Component, the data never leaves the server — only the rendered HTML does. This eliminates round-trips, loading states, and bundle bloat in one move.",
+      "how_to_apply": ["Audit your useEffect data fetches", "Move each one to the nearest Server Component", "Delete the loading state and error boundary that are no longer needed"]
+    },
+    {
+      "claim": "The 'use client' directive is a boundary, not a mode — most of your app should never need it.",
+      "example": "The instructor refactors a 400-line component file: only 2 interactive buttons needed 'use client'.",
+      "mistake": "Adding 'use client' at the top of every file defeats the entire point of the Server Components architecture.",
+      "deep_dive": "Client components are opt-in islands in a server-first architecture. The default should always be server. Only interactivity (onClick, useState, useEffect) justifies the boundary.",
+      "how_to_apply": ["Remove 'use client' from non-interactive components", "Push the boundary as deep as possible toward leaf nodes", "Test that the page still works — it should"]
+    },
+    {
+      "claim": "Streaming with Suspense lets you ship a faster perceived experience without changing your data model.",
+      "example": "The video demos a page that shows a shell in 50ms while the slow query streams in 800ms later.",
+      "mistake": "Waiting for all data before rendering anything makes the page feel slow even when most of it is fast.",
+      "deep_dive": "Suspense boundaries let React flush the fast parts of the tree immediately and stream the slow parts as they resolve. The user sees something useful in milliseconds instead of waiting for the slowest query.",
+      "how_to_apply": ["Wrap slow data components in Suspense with a skeleton fallback", "Move the slow query into its own Server Component", "Verify the fast shell renders before the data arrives"]
+    }
+  ],
+  "mental_models": ["Server-first default", "Client as opt-in island", "Streaming as progressive enhancement"],
+  "examples_used": ["Dashboard with db queries moved to server", "400-line component refactor", "Slow query streaming demo"],
+  "warnings_and_mistakes": ["Over-using 'use client'", "Fetching in useEffect when server works", "Blocking render on slow queries"],
+  "key_terms": ["Server Components", "use client", "Suspense", "streaming", "hydration"],
+  "estimated_difficulty": "intermediate",
+  "topic_category": "React"
+}`;
+}
 
 /**
  * Analyst agent — single AI call via generateWithFallback.
@@ -81,7 +131,8 @@ Rules:
  */
 export async function runAnalyst(
   fetcherOutput: FetcherOutput,
-  modelConfig: ModelConfig
+  modelConfig: ModelConfig,
+  expertiseLevel: "beginner" | "intermediate" | "advanced" = "intermediate"
 ): Promise<AnalystOutput> {
   const config: GenerateConfig = {
     timeoutMs: modelConfig.timeoutMs,
@@ -104,7 +155,7 @@ ${truncatedTranscript}`;
     modelConfig.primary,
     modelConfig.fallback,
     config,
-    { system: SYSTEM_PROMPT, user: userPrompt },
+    { system: buildAnalystSystemPrompt(expertiseLevel), user: userPrompt },
     4096
   );
 

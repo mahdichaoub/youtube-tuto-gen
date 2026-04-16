@@ -10,14 +10,23 @@ const DEPTH_INSTRUCTIONS: Record<string, string> = {
   expert: "Go deep — 400-500 words per section. Include mental models, edge cases, and nuances.",
 };
 
-function buildSystemPrompt(depth: string, focus?: string | null, referenceUrl?: string | null, referenceUrlType?: string | null): string {
+const EXPERTISE_TEACHER_INSTRUCTIONS: Record<string, string> = {
+  beginner: "The learner is a BEGINNER. Explain everything from scratch. Define all terms, use everyday analogies, avoid assumed knowledge, and be encouraging.",
+  intermediate: "The learner has INTERMEDIATE experience. Use standard terminology, skip basics, but explain non-obvious concepts and trade-offs.",
+  advanced: "The learner is ADVANCED. Be terse and precise. Focus on nuances, edge cases, and expert-level trade-offs. Skip all beginner-level scaffolding.",
+};
+
+function buildSystemPrompt(depth: string, expertiseLevel = "intermediate", focus?: string | null, referenceUrl?: string | null, referenceUrlType?: string | null): string {
   const depthInstruction = DEPTH_INSTRUCTIONS[depth] ?? DEPTH_INSTRUCTIONS.deep;
+  const expertiseInstruction = EXPERTISE_TEACHER_INSTRUCTIONS[expertiseLevel] ?? EXPERTISE_TEACHER_INSTRUCTIONS.intermediate;
   const focusNote = focus ? `\nUser's focus: "${focus}" — weight your explanation toward this angle.` : "";
   const styleNote = referenceUrl && referenceUrlType === "style_guide"
     ? `\nStyle reference: ${referenceUrl} — match the tone and structure of this resource.`
     : "";
 
   return `You are a Skool-style learning coach — punchy, direct, no fluff. You make complex ideas feel obvious.
+
+LEARNER LEVEL: ${expertiseInstruction}
 
 Write a teaching summary with EXACTLY these three sections in this order:
 
@@ -49,6 +58,7 @@ export async function runTeacher(
   modelConfig: ModelConfig,
   researcherOutput?: ResearcherOutput,
   depth = "deep",
+  expertiseLevel: "beginner" | "intermediate" | "advanced" = "intermediate",
   focus?: string | null,
   referenceUrl?: string | null,
   referenceUrlType?: string | null
@@ -85,7 +95,7 @@ ${fetcherOutput.transcript.slice(0, 8000)}`;
     modelConfig.primary,
     modelConfig.fallback,
     config,
-    { system: buildSystemPrompt(depth, focus, referenceUrl, referenceUrlType), user: userPrompt },
+    { system: buildSystemPrompt(depth, expertiseLevel, focus, referenceUrl, referenceUrlType), user: userPrompt },
     3000
   );
 

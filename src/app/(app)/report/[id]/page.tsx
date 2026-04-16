@@ -1,8 +1,9 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { HookSection } from "@/components/report/HookSection";
 import { BigIdeaSection } from "@/components/report/BigIdeaSection";
 import { InsightsSection } from "@/components/report/InsightsSection";
@@ -56,6 +57,10 @@ export default function ReportPage({
 
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isShared, setIsShared] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  const [copyToast, setCopyToast] = useState(false);
+  const [sharingPending, setSharingPending] = useState(false);
 
   useEffect(() => {
     fetch(`/api/reports/${id}`)
@@ -64,9 +69,45 @@ export default function ReportPage({
         if (!res.ok) { router.push("/home"); return null; }
         return res.json();
       })
-      .then((data) => { if (data) setReport(data); })
+      .then((data) => {
+        if (data) {
+          setReport(data);
+          setIsShared(data.isShared ?? false);
+        }
+      })
       .finally(() => setLoading(false));
   }, [id, router]);
+
+  const handleShareToggle = useCallback(async (enable: boolean) => {
+    setSharingPending(true);
+    try {
+      const res = await fetch(`/api/reports/${id}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isShared: enable }),
+      });
+      if (res.ok) {
+        setIsShared(enable);
+        if (enable) {
+          const shareUrl = `${window.location.origin}/share/${id}`;
+          await navigator.clipboard.writeText(shareUrl).catch(() => {});
+          setShareToast("Link copied to clipboard!");
+        } else {
+          setShareToast("Sharing disabled.");
+        }
+        setTimeout(() => setShareToast(null), 3000);
+      }
+    } finally {
+      setSharingPending(false);
+    }
+  }, [id]);
+
+  const handleCopyMarkdown = useCallback(async () => {
+    if (!report?.sections.actions?.markdown) return;
+    await navigator.clipboard.writeText(report.sections.actions.markdown).catch(() => {});
+    setCopyToast(true);
+    setTimeout(() => setCopyToast(false), 3000);
+  }, [report]);
 
   if (loading) {
     return (
@@ -94,7 +135,7 @@ export default function ReportPage({
         <h1 className="text-2xl font-bold leading-tight mb-3">
           {report.title ?? "Video Report"}
         </h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {report.topicCategory && (
             <Badge variant="secondary">{report.topicCategory}</Badge>
           )}
@@ -103,7 +144,44 @@ export default function ReportPage({
               {report.estimatedDifficulty}
             </Badge>
           )}
+          <div className="flex-1" />
+          {actions?.markdown && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyMarkdown}
+              className="text-xs"
+            >
+              {copyToast ? "Copied!" : "Copy as Markdown"}
+            </Button>
+          )}
+          {isShared ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleShareToggle(false)}
+              disabled={sharingPending}
+              className="text-xs"
+            >
+              Disable sharing
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleShareToggle(true)}
+              disabled={sharingPending}
+              className="text-xs"
+            >
+              Share
+            </Button>
+          )}
         </div>
+
+        {/* Toast feedback */}
+        {shareToast && (
+          <p className="text-xs text-muted-foreground mt-2">{shareToast}</p>
+        )}
       </div>
 
       {/* 🔥 Why This Matters To You */}

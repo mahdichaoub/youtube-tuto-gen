@@ -44,10 +44,12 @@ function TaskRow({
   task,
   richTask,
   onToggle,
+  readOnly = false,
 }: {
   task: TaskItem;
   richTask: string | RichTask;
   onToggle: (id: string, completed: boolean, streak: { currentStreak: number }) => void;
+  readOnly?: boolean;
 }) {
   const [checked, setChecked] = useState(task.completed);
   const [pending, setPending] = useState(false);
@@ -83,13 +85,15 @@ function TaskRow({
   return (
     <li className="space-y-1">
       <div className="flex items-start gap-2.5">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={handleChange}
-          disabled={pending || isStatic}
-          className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border accent-green-500 cursor-pointer disabled:cursor-default"
-        />
+        {!readOnly && (
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={handleChange}
+            disabled={pending || isStatic}
+            className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border accent-green-500 cursor-pointer disabled:cursor-default"
+          />
+        )}
         <span
           className={`text-sm flex-1 ${checked ? "line-through text-muted-foreground" : "text-foreground/90"}`}
         >
@@ -137,6 +141,7 @@ function TaskRow({
 interface MissionSectionProps {
   actions: ActionOutput;
   tasks: TaskItem[];
+  readOnly?: boolean;
 }
 
 const DETAIL_LABELS: Record<number, string> = {
@@ -147,7 +152,7 @@ const DETAIL_LABELS: Record<number, string> = {
   5: "Expert",
 };
 
-export function MissionSection({ actions, tasks }: MissionSectionProps) {
+export function MissionSection({ actions, tasks, readOnly = false }: MissionSectionProps) {
   const { setCurrentStreak } = useStreak();
   const [detailLevel, setDetailLevel] = useState(3);
   const [savingDetail, setSavingDetail] = useState(false);
@@ -242,61 +247,64 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
         </div>
       )}
 
-      {/* Detail level selector */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Action detail level
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Applies to your next report
-            </p>
+      {/* Detail level selector + progress bar — hidden in read-only (shared) view */}
+      {!readOnly && (
+        <>
+          <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Action detail level
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Applies to your next report
+                </p>
+              </div>
+              {detailSaved && (
+                <span className="text-xs text-green-500 font-medium">Saved</span>
+              )}
+              {savingDetail && !detailSaved && (
+                <span className="text-xs text-muted-foreground">Saving…</span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((level) => (
+                <button
+                  type="button"
+                  key={level}
+                  onClick={() => handleDetailChange(level)}
+                  className={`flex-1 rounded-lg border py-1.5 text-xs font-semibold transition-colors ${
+                    detailLevel === level
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  }`}
+                >
+                  <span className="block">{level}</span>
+                  <span className="block text-[10px] font-normal opacity-70">{DETAIL_LABELS[level]}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          {detailSaved && (
-            <span className="text-xs text-green-500 font-medium">Saved</span>
-          )}
-          {savingDetail && !detailSaved && (
-            <span className="text-xs text-muted-foreground">Saving…</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map((level) => (
-            <button
-              type="button"
-              key={level}
-              onClick={() => handleDetailChange(level)}
-              className={`flex-1 rounded-lg border py-1.5 text-xs font-semibold transition-colors ${
-                detailLevel === level
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-              }`}
-            >
-              <span className="block">{level}</span>
-              <span className="block text-[10px] font-normal opacity-70">{DETAIL_LABELS[level]}</span>
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Progress bar */}
-      <div className="rounded-xl border border-border bg-card px-5 py-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Progress
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {completedCount} of {totalCount} tasks
-          </p>
-        </div>
-        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full bg-green-500 transition-all duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground text-right">{progressPct}%</p>
-      </div>
+          <div className="rounded-xl border border-border bg-card px-5 py-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Progress
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {completedCount} of {totalCount} tasks
+              </p>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-green-500 transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-right">{progressPct}%</p>
+          </div>
+        </>
+      )}
 
       {/* Today tasks */}
       <div className="rounded-xl border border-border bg-card p-5">
@@ -310,6 +318,7 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
               task={task}
               richTask={actions.today.find((t) => getLabel(t) === task.label) ?? task.label}
               onToggle={handleToggle}
+              readOnly={readOnly}
             />
           ))}
         </ul>
@@ -327,6 +336,7 @@ export function MissionSection({ actions, tasks }: MissionSectionProps) {
               task={task}
               richTask={actions.week.find((t) => getLabel(t) === task.label) ?? task.label}
               onToggle={handleToggle}
+              readOnly={readOnly}
             />
           ))}
         </ul>

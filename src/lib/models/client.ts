@@ -144,7 +144,7 @@ export async function loadUserModelConfig(
         : (["openrouter", "moonshotai/kimi-k2", openrouterKey] as const);
 
     const primary = buildModel(provider, model, serverKey);
-    return { primary, fallback: null, timeoutMs: 60000, dailyCostLimitUsd: 5.0 };
+    return { primary, fallback: null, timeoutMs: 120000, dailyCostLimitUsd: 5.0 };
   }
 
   const cfg = config[0];

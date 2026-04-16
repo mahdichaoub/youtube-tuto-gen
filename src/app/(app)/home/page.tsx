@@ -18,6 +18,7 @@ interface RecentReport {
 
 type Depth = "quick" | "deep" | "expert";
 type RefType = "style_guide" | "extra_reading" | "project_context";
+type ExpertiseLevel = "beginner" | "intermediate" | "advanced";
 
 const DEPTH_OPTIONS: { value: Depth; label: string; desc: string }[] = [
   { value: "quick", label: "Quick", desc: "~100 words/section" },
@@ -25,11 +26,27 @@ const DEPTH_OPTIONS: { value: Depth; label: string; desc: string }[] = [
   { value: "expert", label: "Expert", desc: "~500 words + edge cases" },
 ];
 
+const DETAIL_OPTIONS: { value: number; label: string; desc: string }[] = [
+  { value: 1, label: "1", desc: "Key points only" },
+  { value: 2, label: "2", desc: "Brief steps" },
+  { value: 3, label: "3", desc: "Balanced" },
+  { value: 4, label: "4", desc: "Thorough" },
+  { value: 5, label: "5", desc: "Deep dive" },
+];
+
+const EXPERTISE_OPTIONS: { value: ExpertiseLevel; label: string; desc: string }[] = [
+  { value: "beginner", label: "Beginner", desc: "New to this topic" },
+  { value: "intermediate", label: "Intermediate", desc: "Some experience" },
+  { value: "advanced", label: "Advanced", desc: "Deep knowledge" },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [projectContext, setProjectContext] = useState("");
   const [depth, setDepth] = useState<Depth>("deep");
+  const [detailLevel, setDetailLevel] = useState(3);
+  const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel>("intermediate");
   const [focus, setFocus] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [referenceUrlType, setReferenceUrlType] = useState<RefType>("extra_reading");
@@ -69,6 +86,8 @@ export default function HomePage() {
           url: url.trim(),
           project_context: projectContext.trim(),
           depth,
+          detail_level: detailLevel,
+          expertise_level: expertiseLevel,
           focus: focus.trim() || undefined,
           reference_url: referenceUrl.trim() || undefined,
           reference_url_type: referenceUrl.trim() ? referenceUrlType : undefined,
@@ -145,6 +164,52 @@ export default function HomePage() {
                   disabled={isSubmitting}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors text-left ${
                     depth === opt.value
+                      ? "border-primary bg-primary/10 font-semibold text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <div className="font-medium">{opt.label}</div>
+                  <div className="text-xs opacity-70">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Expertise level */}
+          <div className="space-y-2">
+            <Label>Your level</Label>
+            <div className="flex gap-2">
+              {EXPERTISE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setExpertiseLevel(opt.value)}
+                  disabled={isSubmitting}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors text-left ${
+                    expertiseLevel === opt.value
+                      ? "border-primary bg-primary/10 font-semibold text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <div className="font-medium">{opt.label}</div>
+                  <div className="text-xs opacity-70">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action plan detail level */}
+          <div className="space-y-2">
+            <Label>Action plan detail</Label>
+            <div className="flex gap-2">
+              {DETAIL_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDetailLevel(opt.value)}
+                  disabled={isSubmitting}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors text-center ${
+                    detailLevel === opt.value
                       ? "border-primary bg-primary/10 font-semibold text-primary"
                       : "border-border bg-background text-muted-foreground hover:bg-muted"
                   }`}
