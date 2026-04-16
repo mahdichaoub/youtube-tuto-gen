@@ -54,6 +54,7 @@ export async function PATCH(
     return NextResponse.json({ error: "forbidden", message: "You do not have access to this task." }, { status: 403 });
   }
 
+  const wasCompleted = task.completed;
   const now = new Date();
   const completedAt = body.completed ? now : null;
 
@@ -74,7 +75,7 @@ export async function PATCH(
   const today = todayUTC();
   const yesterday = yesterdayUTC();
 
-  if (body.completed) {
+  if (body.completed && !wasCompleted) {
     if (!streakRow) {
       // First time — insert
       const [inserted] = await db

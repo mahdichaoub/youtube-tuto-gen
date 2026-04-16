@@ -114,7 +114,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 **Boilerplate note**: Auth (`src/lib/auth.ts`, `auth-client.ts`), DB connection (`src/lib/db.ts`), and shadcn components (`src/components/ui/`) are provided and must not be rebuilt. The boilerplate includes unused chat and dashboard routes (`src/app/chat/`, `src/app/dashboard/`) — leave them as-is for now.
 
-**AI SDK note**: `@anthropic-ai/sdk` is used directly (not via Vercel AI SDK wrappers). The boilerplate ships `@ai-sdk/anthropic` and `ai` packages for its chat feature — do not use these for LearnAgent agents.
+**AI SDK note**: LearnAgent uses a **multi-provider model layer** (`src/lib/models/call.ts`) built on the Vercel AI SDK (`generateText` from `"ai"`) to support Anthropic, Moonshot/Kimi, OpenRouter, and other providers uniformly. This is an approved deviation from the original spec (which specified `@anthropic-ai/sdk` direct). The default model is `claude-sonnet-4-6`. Do not replace this layer with `@anthropic-ai/sdk` direct calls.
 
 ---
 
@@ -126,15 +126,19 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 User Input (YouTube URL + project_context)
            ↓
     ORCHESTRATOR  (src/agents/orchestrator.ts)
-    ├─→ FETCHER   → transcript JSON            (no AI call — Supadata REST)
-    ├─→ ANALYST   → structured analysis JSON   (claude-sonnet-4-6)
-    ├─→ TEACHER   → plain markdown summary     (claude-sonnet-4-6)
-    └─→ ACTION    ← teacher MD + analyst JSON + project_context
-                  → tailored action plan       (claude-sonnet-4-6)
+    ├─→ FETCHER     → transcript JSON              (no AI call — Supadata REST)
+    ├─→ ANALYST     → structured analysis JSON     (multi-provider model layer)
+    ├─→ RESEARCHER  → concept articles + docs      (multi-provider, non-fatal)
+    ├─→ TEACHER     → plain markdown summary       (multi-provider model layer)
+    └─→ ACTION      ← teacher MD + analyst JSON + project_context
+                    → tailored action plan         (multi-provider model layer)
            ↓
     Save to PostgreSQL (Drizzle) → return report_id
     SSE events emitted via pipeline-emitter → processing screen
 ```
+
+**7-state pipeline lifecycle** (approved extension from original 6-state spec):
+`fetching → analyzing → researching → teaching → planning → saving → complete | failed | partial`
 
 Agents are stateless and contract-driven. The Orchestrator is the sole relay; it never summarizes content itself.
 
@@ -182,6 +186,7 @@ The pipeline emits events via `src/lib/pipeline-emitter.ts` (module-level `Map<r
 |---|---|
 | `fetching` | Reading the video |
 | `analyzing` | Analyzing the content |
+| `researching` | Researching the topic |
 | `teaching` | Writing your summary |
 | `planning` | Crafting your action plan |
 | `saving` | Saving your report |

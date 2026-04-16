@@ -159,6 +159,8 @@ export const tasks = pgTable(
     label: text("label").notNull(),
     // scope values: today | week | month
     scope: text("scope").notNull(),
+    // 0-based index into the action output today/week array — used for reliable richTask matching
+    actionIndex: integer("action_index"),
     completed: boolean("completed").notNull().default(false),
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -211,7 +213,7 @@ export const userModelConfig = pgTable("user_model_config", {
   })
     .notNull()
     .default("5.0000"),
-  timeoutMs: integer("timeout_ms").notNull().default(30000),
+  timeoutMs: integer("timeout_ms").notNull().default(120000),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

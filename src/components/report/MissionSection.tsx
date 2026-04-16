@@ -26,6 +26,7 @@ export interface TaskItem {
   scope: "today" | "week" | "month";
   completed: boolean;
   completedAt: string | null;
+  actionIndex?: number | null;
 }
 
 function getLabel(task: string | RichTask): string {
@@ -205,6 +206,7 @@ export function MissionSection({ actions, tasks, readOnly = false }: MissionSect
           scope: "today" as const,
           completed: false,
           completedAt: null,
+          actionIndex: i,
         }));
 
   const weekList =
@@ -216,6 +218,7 @@ export function MissionSection({ actions, tasks, readOnly = false }: MissionSect
           scope: "week" as const,
           completed: false,
           completedAt: null,
+          actionIndex: i,
         }));
 
   const handleToggle = useCallback(
@@ -316,7 +319,11 @@ export function MissionSection({ actions, tasks, readOnly = false }: MissionSect
             <TaskRow
               key={task.id}
               task={task}
-              richTask={actions.today.find((t) => getLabel(t) === task.label) ?? task.label}
+              richTask={
+              task.actionIndex != null
+                ? (actions.today[task.actionIndex] ?? task.label)
+                : (actions.today.find((t) => getLabel(t) === task.label) ?? task.label)
+            }
               onToggle={handleToggle}
               readOnly={readOnly}
             />
@@ -334,7 +341,11 @@ export function MissionSection({ actions, tasks, readOnly = false }: MissionSect
             <TaskRow
               key={task.id}
               task={task}
-              richTask={actions.week.find((t) => getLabel(t) === task.label) ?? task.label}
+              richTask={
+              task.actionIndex != null
+                ? (actions.week[task.actionIndex] ?? task.label)
+                : (actions.week.find((t) => getLabel(t) === task.label) ?? task.label)
+            }
               onToggle={handleToggle}
               readOnly={readOnly}
             />

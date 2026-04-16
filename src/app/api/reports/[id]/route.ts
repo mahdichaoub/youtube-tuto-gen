@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { reports, reportSections, tasks } from "@/lib/schema";
-import { eq, and } from "drizzle-orm";
 
 export async function GET(
   _req: NextRequest,
@@ -17,24 +17,17 @@ export async function GET(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // Fetch report
+  // Fetch report — userId filter enforced at query level (spec Data Isolation Rule)
   const reportRows = await db
     .select()
     .from(reports)
-    .where(eq(reports.id, id))
+    .where(and(eq(reports.id, id), eq(reports.userId, session.user.id)))
     .limit(1);
 
   if (!reportRows[0]) {
     return NextResponse.json(
       { error: "not_found", message: "Report not found." },
       { status: 404 }
-    );
-  }
-
-  if (reportRows[0].userId !== session.user.id) {
-    return NextResponse.json(
-      { error: "forbidden", message: "You do not have access to this report." },
-      { status: 403 }
     );
   }
 
@@ -76,6 +69,7 @@ export async function GET(
       completed: t.completed,
       completedAt: t.completedAt,
       createdAt: t.createdAt,
+      actionIndex: t.actionIndex,
     })),
   });
 }

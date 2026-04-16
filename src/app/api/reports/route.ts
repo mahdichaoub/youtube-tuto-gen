@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { eq, and, ilike, or, desc, count } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { reports } from "@/lib/schema";
-import { eq, and, ilike, or, desc, count } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -15,22 +15,30 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
   const q = searchParams.get("q")?.trim();
+  const status = searchParams.get("status")?.trim().toLowerCase() ?? "complete";
   const offset = (page - 1) * limit;
 
   // Build filters
   const userFilter = eq(reports.userId, session.user.id);
-  const statusFilter = eq(reports.status, "complete");
+  const statusFilter =
+    status === "all"
+      ? undefined
+      : status === "ready"
+        ? or(eq(reports.status, "complete"), eq(reports.status, "partial"))
+        : status === "complete"
+        ? eq(reports.status, "complete")
+        : undefined;
 
   const filters = q
     ? and(
         userFilter,
-        statusFilter,
+        ...(statusFilter ? [statusFilter] : []),
         or(
           ilike(reports.title, `%${q}%`),
           ilike(reports.topicCategory, `%${q}%`)
         )
       )
-    : and(userFilter, statusFilter);
+    : and(userFilter, ...(statusFilter ? [statusFilter] : []));
 
   const [rows, totalResult] = await Promise.all([
     db

@@ -2,15 +2,15 @@
 
 import { use, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { HookSection } from "@/components/report/HookSection";
 import { BigIdeaSection } from "@/components/report/BigIdeaSection";
+import { HookSection } from "@/components/report/HookSection";
 import { InsightsSection } from "@/components/report/InsightsSection";
-import { ResearchLinksSection } from "@/components/report/ResearchLinksSection";
+import type { KeyInsight } from "@/components/report/InsightsSection";
 import { MissionSection } from "@/components/report/MissionSection";
 import type { ActionOutput, TaskItem } from "@/components/report/MissionSection";
-import type { KeyInsight } from "@/components/report/InsightsSection";
+import { ResearchLinksSection } from "@/components/report/ResearchLinksSection";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface ResearchData {
   concept_articles: { title: string; url: string; summary: string; source_type: string }[];

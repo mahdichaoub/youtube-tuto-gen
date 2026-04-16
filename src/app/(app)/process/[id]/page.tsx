@@ -1,30 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-
-// Inline stage label map — will be extracted to src/lib/sse-labels.ts in T051
-const STAGE_LABELS: Record<string, string> = {
-  fetching: "Reading the video",
-  analyzing: "Analyzing the content",
-  researching: "Researching the topic",
-  teaching: "Writing your summary",
-  planning: "Crafting your action plan",
-  saving: "Saving your report",
-  complete: "Your report is ready!",
-};
-
-const STAGE_ORDER = [
-  "fetching",
-  "analyzing",
-  "researching",
-  "teaching",
-  "planning",
-  "saving",
-  "complete",
-];
+import { STAGE_LABELS, STAGE_ORDER } from "@/lib/sse-labels";
+import { useGeneration } from "@/components/GenerationBanner";
 
 interface StepState {
   status: "idle" | "running" | "complete";
@@ -34,6 +15,7 @@ export default function ProcessPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const { setActiveReportId } = useGeneration();
 
   const [steps, setSteps] = useState<Record<string, StepState>>(() =>
     Object.fromEntries(STAGE_ORDER.map((s) => [s, { status: "idle" }]))
@@ -60,10 +42,12 @@ export default function ProcessPage() {
           setTimeout(() => setWarning(null), 5000);
         } else if (event.type === "done") {
           setSteps((prev) => ({ ...prev, complete: { status: "complete" } }));
+          setActiveReportId(null);
           es.close();
           setTimeout(() => router.push(`/report/${event.report_id}`), 600);
         } else if (event.type === "error") {
           setErrorMsg(event.message);
+          setActiveReportId(null);
           es.close();
         }
       } catch {

@@ -1,9 +1,9 @@
 import { generateText } from "ai";
-import type { LanguageModel } from "./registry";
-import { getCostRate } from "./registry";
+import { eq, gte, and, sum } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { reportCostLog } from "@/lib/schema";
-import { eq, gte, and, sum } from "drizzle-orm";
+import { getCostRate } from "./registry";
+import type { LanguageModel } from "./registry";
 
 export type AgentName = "analyst" | "teacher" | "action" | "researcher";
 
@@ -13,6 +13,12 @@ export interface GenerateConfig {
   userId: string;
   reportId: string;
   agentName: AgentName;
+}
+
+function debugLog(message: string): void {
+  if (process.env.NODE_ENV !== "production") {
+    process.stdout.write(`${message}\n`);
+  }
 }
 
 // ─── Cost helpers ─────────────────────────────────────────────────────────────
@@ -94,7 +100,7 @@ export async function generateWithFallback(
   const { timeoutMs, dailyCostLimitUsd, userId, reportId, agentName } = config;
 
   // Step 1 — daily cost gate
-  console.log(`[call:${agentName}] checking daily cost for userId=${userId}`);
+  debugLog(`[call:${agentName}] checking daily cost for userId=${userId}`);
   let todayCost: number;
   try {
     todayCost = await getTodayCostUsd(userId);
@@ -102,7 +108,7 @@ export async function generateWithFallback(
     console.error(`[call:${agentName}] getTodayCostUsd FAILED:`, err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err));
     throw err;
   }
-  console.log(`[call:${agentName}] todayCost=${todayCost} limit=${dailyCostLimitUsd}`);
+  debugLog(`[call:${agentName}] todayCost=${todayCost} limit=${dailyCostLimitUsd}`);
 
   if (todayCost >= dailyCostLimitUsd) {
     if (fallback) {
@@ -112,10 +118,10 @@ export async function generateWithFallback(
   }
 
   // Step 2 — try primary with per-step timeout
-  console.log(`[call:${agentName}] calling primary model`);
+  debugLog(`[call:${agentName}] calling primary model`);
   try {
     const result = await runModel(primary, prompt, maxTokens, userId, reportId, false, timeoutMs);
-    console.log(`[call:${agentName}] primary model succeeded`);
+    debugLog(`[call:${agentName}] primary model succeeded`);
     return result;
   } catch (err) {
     console.error(`[call:${agentName}] primary model FAILED:`, err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err));
@@ -126,7 +132,7 @@ export async function generateWithFallback(
   }
 
   // Step 3 — try fallback (no per-step timeout override)
-  console.log(`[call:${agentName}] calling fallback model`);
+  debugLog(`[call:${agentName}] calling fallback model`);
   try {
     return await runModel(fallback!, prompt, maxTokens, userId, reportId, true);
   } catch (err) {

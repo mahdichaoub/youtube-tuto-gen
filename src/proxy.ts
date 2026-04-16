@@ -21,5 +21,18 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard", "/chat", "/profile"], // Protected routes
+  // Protected routes — /share/:path* is intentionally excluded (public route)
+  matcher: [
+    "/dashboard",
+    "/chat",
+    "/profile",
+    "/home",
+    "/home/:path*",
+    "/process/:path*",
+    "/report/:path*",
+    "/library",
+    "/library/:path*",
+    "/progress",
+    "/settings/:path*",
+  ],
 };

@@ -34,7 +34,6 @@ export type PipelineEvent =
 // (Turbopack isolates modules per route, so a module-level Map would not be shared).
 
 declare global {
-  // eslint-disable-next-line no-var
   var __pipelineEmitters: Map<string, EventEmitter> | undefined;
 }
 

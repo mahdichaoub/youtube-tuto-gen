@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { useGeneration } from "@/components/GenerationBanner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface RecentReport {
   id: string;
@@ -42,6 +43,7 @@ const EXPERTISE_OPTIONS: { value: ExpertiseLevel; label: string; desc: string }[
 
 export default function HomePage() {
   const router = useRouter();
+  const { setActiveReportId } = useGeneration();
   const [url, setUrl] = useState("");
   const [projectContext, setProjectContext] = useState("");
   const [depth, setDepth] = useState<Depth>("deep");
@@ -55,7 +57,7 @@ export default function HomePage() {
   const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
 
   useEffect(() => {
-    fetch("/api/reports?limit=5&status=complete")
+    fetch("/api/reports?limit=5&status=ready")
       .then((r) => r.json())
       .then((data) => {
         if (data.reports) setRecentReports(data.reports);
@@ -106,6 +108,7 @@ export default function HomePage() {
         return;
       }
 
+      setActiveReportId(data.report_id);
       router.push(`/process/${data.report_id}`);
     } catch {
       setError("Unable to connect. Please check your connection and try again.");

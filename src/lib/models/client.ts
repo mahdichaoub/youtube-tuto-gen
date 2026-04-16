@@ -1,15 +1,15 @@
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createMistral } from "@ai-sdk/mistral";
+import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { userModelConfig, userApiKeys } from "@/lib/schema";
-import { eq, and } from "drizzle-orm";
-import type { LanguageModel } from "./registry";
 import { DEFAULT_PRIMARY } from "./registry";
+import type { LanguageModel } from "./registry";
 
 // ─── Encryption helpers ───────────────────────────────────────────────────────
 

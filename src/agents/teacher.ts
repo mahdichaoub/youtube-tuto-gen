@@ -1,7 +1,7 @@
 import { generateWithFallback, type GenerateConfig } from "@/lib/models/call";
 import type { ModelConfig } from "./analyst";
-import type { FetcherOutput } from "./fetcher";
 import type { AnalystOutput } from "./analyst";
+import type { FetcherOutput } from "./fetcher";
 import type { ResearcherOutput } from "./researcher";
 
 const DEPTH_INSTRUCTIONS: Record<string, string> = {

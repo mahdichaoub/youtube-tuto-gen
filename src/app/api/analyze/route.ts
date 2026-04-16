@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { eq, and, inArray } from "drizzle-orm";
+import { runPipeline } from "@/agents/orchestrator";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { reports } from "@/lib/schema";
-import { eq, and, inArray } from "drizzle-orm";
 import { extractVideoId } from "@/lib/validate-url";
-import { runPipeline } from "@/agents/orchestrator";
 
 export async function POST(req: NextRequest) {
   // 1. Authenticate
@@ -114,19 +115,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 
-  // 7. Fire-and-forget pipeline
-  runPipeline(newReport.id, url!, project_context.trim(), session.user.id, {
+  const pipelineArgs = {
     depth: resolvedDepth,
     detailLevel: resolvedDetailLevel,
     expertiseLevel: resolvedExpertiseLevel,
     focus: focus?.trim() || null,
     referenceUrl: reference_url?.trim() || null,
     referenceUrlType: reference_url_type || null,
-  }).catch(
-    (err) => {
+  };
+
+  // 7. Continue report generation explicitly after the response is sent.
+  // This is more reliable than leaving a detached promise hanging off the request.
+  after(async () => {
+    try {
+      await runPipeline(newReport.id, url!, project_context.trim(), session.user.id, pipelineArgs);
+    } catch (err) {
       console.error("[analyze] unhandled pipeline error", err);
     }
-  );
+  });
 
   return NextResponse.json({ report_id: newReport.id, status: "fetching" }, { status: 202 });
 }

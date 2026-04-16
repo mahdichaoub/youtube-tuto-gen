@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/session";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { userPreferences } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { requireAuth } from "@/lib/session";
 
 export async function GET() {
   let session: Awaited<ReturnType<typeof requireAuth>>;

@@ -1,13 +1,13 @@
-import { db } from "@/lib/db";
-import { reports, reportSections, tasks } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
+import { db } from "@/lib/db";
 import { loadUserModelConfig } from "@/lib/models/client";
 import { getEmitter, removeEmitter, emitPipelineEvent } from "@/lib/pipeline-emitter";
-import { runFetcher } from "./fetcher";
+import { reports, reportSections, tasks } from "@/lib/schema";
+import { runAction } from "./action";
 import { runAnalyst } from "./analyst";
+import { runFetcher } from "./fetcher";
 import { runResearcher } from "./researcher";
 import { runTeacher } from "./teacher";
-import { runAction } from "./action";
 
 export interface PipelineOptions {
   depth?: string | null;
@@ -257,17 +257,19 @@ export async function runPipeline(
       ]);
 
       const taskRows = [
-        ...actionOutput.data.today.map((task) => ({
+        ...actionOutput.data.today.map((task, i) => ({
           reportId,
           userId,
           label: task.label,
           scope: "today" as const,
+          actionIndex: i,
         })),
-        ...actionOutput.data.week.map((task) => ({
+        ...actionOutput.data.week.map((task, i) => ({
           reportId,
           userId,
           label: task.label,
           scope: "week" as const,
+          actionIndex: i,
         })),
       ];
 
@@ -288,9 +290,9 @@ export async function runPipeline(
     removeEmitter(reportId);
   };
 
-  // 7-minute hard ceiling for full sequential pipeline
+  // 90-second hard ceiling — FR-008 requirement
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("pipeline_timeout")), 420_000)
+    setTimeout(() => reject(new Error("pipeline_timeout")), 90_000)
   );
 
   try {

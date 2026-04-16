@@ -1,15 +1,16 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import { reports, reportSections } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
-import { Badge } from "@/components/ui/badge";
-import { HookSection } from "@/components/report/HookSection";
 import { BigIdeaSection } from "@/components/report/BigIdeaSection";
+import { HookSection } from "@/components/report/HookSection";
 import { InsightsSection } from "@/components/report/InsightsSection";
-import { ResearchLinksSection } from "@/components/report/ResearchLinksSection";
+import type { KeyInsight } from "@/components/report/InsightsSection";
 import { MissionSection } from "@/components/report/MissionSection";
 import type { ActionOutput } from "@/components/report/MissionSection";
-import type { KeyInsight } from "@/components/report/InsightsSection";
+import { ResearchLinksSection } from "@/components/report/ResearchLinksSection";
+import { Badge } from "@/components/ui/badge";
+import { db } from "@/lib/db";
+import { reports, reportSections } from "@/lib/schema";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -100,9 +101,9 @@ export default async function SharePage({ params }: Props) {
       {/* Shared report banner */}
       <div className="text-xs text-muted-foreground text-center border rounded-lg py-2 px-4 bg-muted/30">
         This is a shared report — create your own at{" "}
-        <a href="/" className="underline hover:text-foreground">
+        <Link href="/" className="underline hover:text-foreground">
           LearnAgent
-        </a>
+        </Link>
       </div>
 
       {/* Header */}
