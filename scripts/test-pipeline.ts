@@ -5,8 +5,9 @@
  * Run: npx tsx scripts/test-pipeline.ts
  */
 
-import { config } from "dotenv";
-config({ path: ".env.local" });
+// Load .env.local — tsx supports this natively via --env-file flag:
+// npx tsx --env-file=.env.local scripts/test-pipeline.ts
+// Or set MOONSHOT_API_KEY in your shell before running.
 
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
