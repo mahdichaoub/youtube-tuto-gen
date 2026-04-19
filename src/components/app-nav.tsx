@@ -17,7 +17,7 @@ import { useSession, signOut } from "@/lib/auth-client"
 import { StreakDisplay } from "@/contexts/StreakContext"
 
 const NAV_LINKS = [
-  { href: "/home", label: "HOME" },
+  { href: "/", label: "HOME" },
   { href: "/library", label: "LIBRARY" },
   { href: "/progress", label: "PROGRESS" },
 ] as const

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,13 +37,13 @@ export function SignUpForm() {
         name,
         email,
         password,
-        callbackURL: "/dashboard",
+        callbackURL: "/home",
       })
 
       if (result.error) {
         setError(result.error.message || "Failed to create account")
       } else {
-        router.push("/dashboard")
+        router.push("/home")
         router.refresh()
       }
     } catch {
@@ -110,12 +109,6 @@ export function SignUpForm() {
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Creating account..." : "Create account"}
       </Button>
-      <div className="text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link href="/login" className="text-primary hover:underline">
-          Sign in
-        </Link>
-      </div>
     </form>
   )
 }
