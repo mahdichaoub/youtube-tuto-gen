@@ -157,7 +157,7 @@
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(18px);
   }
   to {
     opacity: 1;
@@ -168,6 +168,58 @@
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-12px) rotate(1deg); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes type-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes ping-amber {
+  75%, 100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes border-glow {
+  0%, 100% { border-color: oklch(0.78 0.18 75 / 20%); }
+  50%       { border-color: oklch(0.78 0.18 75 / 50%); }
+}
+
+@keyframes scan-line {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes step-pulse {
@@ -200,16 +252,49 @@
    ───────────────────────────────────────── */
 @layer utilities {
   .animate-fade-up {
-    animation: fade-up 0.5s ease both;
+    animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .animate-fade-in {
     animation: fade-in 0.4s ease both;
+  }
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+  .animate-slide-in-left {
+    animation: slide-in-left 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-reveal-up {
+    animation: reveal-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .animate-step-pulse {
     animation: step-pulse 2s ease-in-out infinite;
   }
   .animate-step-complete {
     animation: step-complete 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .animate-border-glow {
+    animation: border-glow 2.5s ease-in-out infinite;
+  }
+  .animate-ping-amber {
+    animation: ping-amber 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  /* Intersection Observer hook — starts hidden, JS adds .is-visible */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .scroll-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   .font-serif {
