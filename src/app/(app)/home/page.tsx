@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useGeneration } from "@/components/GenerationBanner";
 
@@ -37,162 +37,203 @@ const EXPERTISE_OPTIONS: { value: ExpertiseLevel; label: string; desc: string }[
 
 /* ─────────── Neural Mesh Background ─────────── */
 function NeuralMeshBg() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    let W = 0, H = 0;
+
+    function resize() {
+      if (!canvas) return;
+      W = canvas.offsetWidth;
+      H = canvas.offsetHeight;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx!.scale(dpr, dpr);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    const AMBER  = { r: 245, g: 158, b: 11  };
+    const VIOLET = { r: 139, g: 92,  b: 246 };
+    const CYAN   = { r: 34,  g: 211, b: 238 };
+    const PALETTE = [AMBER, AMBER, VIOLET, VIOLET, CYAN];
+
+    interface Particle {
+      x: number; y: number;
+      vx: number; vy: number;
+      r: number;
+      color: { r: number; g: number; b: number };
+      phase: number; phaseSpeed: number;
+    }
+
+    const N = 60;
+    const pts: Particle[] = Array.from({ length: N }, () => {
+      const c = PALETTE[Math.floor(Math.random() * PALETTE.length)] ?? AMBER;
+      return {
+        x: Math.random() * (W || 1200),
+        y: Math.random() * (H || 700),
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        r: 1.8 + Math.random() * 2.5,
+        color: c,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: 0.018 + Math.random() * 0.025,
+      };
+    });
+
+    interface Ring { x: number; y: number; rad: number; maxRad: number; a: number; c: { r: number; g: number; b: number } }
+    const rings: Ring[] = [];
+    let ringTick = 0;
+
+    function draw() {
+      ctx!.clearRect(0, 0, W, H);
+
+      // Move particles
+      for (const p of pts) {
+        p.x += p.vx; p.y += p.vy; p.phase += p.phaseSpeed;
+        if (p.x < -60) p.x = W + 60;
+        if (p.x > W + 60) p.x = -60;
+        if (p.y < -60) p.y = H + 60;
+        if (p.y > H + 60) p.y = -60;
+      }
+
+      // Connections
+      const MAX = 160;
+      for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+          const pi = pts[i]!, pj = pts[j]!;
+          const dx = pi.x - pj.x;
+          const dy = pi.y - pj.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < MAX) {
+            const a = (1 - d / MAX) * 0.4;
+            const c = pi.color;
+            ctx!.beginPath();
+            ctx!.moveTo(pi.x, pi.y);
+            ctx!.lineTo(pj.x, pj.y);
+            ctx!.strokeStyle = `rgba(${c.r},${c.g},${c.b},${a})`;
+            ctx!.lineWidth = 0.65;
+            ctx!.stroke();
+          }
+        }
+      }
+
+      // Pulse rings
+      ringTick++;
+      if (ringTick > 80) {
+        const p = pts[Math.floor(Math.random() * N)]!;
+        rings.push({ x: p.x, y: p.y, rad: 0, maxRad: 55 + Math.random() * 70, a: 0.65, c: p.color });
+        ringTick = 0;
+      }
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const rng = rings[i]!;
+        rng.rad += 1.1; rng.a -= 0.007;
+        if (rng.a <= 0 || rng.rad > rng.maxRad) { rings.splice(i, 1); continue; }
+        ctx!.beginPath();
+        ctx!.arc(rng.x, rng.y, rng.rad, 0, Math.PI * 2);
+        ctx!.strokeStyle = `rgba(${rng.c.r},${rng.c.g},${rng.c.b},${rng.a})`;
+        ctx!.lineWidth = 1;
+        ctx!.stroke();
+      }
+
+      // Particles
+      for (const p of pts) {
+        const pulse = 0.55 + Math.sin(p.phase) * 0.45;
+        const { r: cr, g: cg, b: cb } = p.color;
+        // Glow halo
+        const grd = ctx!.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 7);
+        grd.addColorStop(0, `rgba(${cr},${cg},${cb},${0.35 * pulse})`);
+        grd.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+        ctx!.beginPath();
+        ctx!.arc(p.x, p.y, p.r * 7, 0, Math.PI * 2);
+        ctx!.fillStyle = grd;
+        ctx!.fill();
+        // Core
+        ctx!.beginPath();
+        ctx!.arc(p.x, p.y, p.r * pulse, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(${cr},${cg},${cb},${0.9 * pulse})`;
+        ctx!.fill();
+      }
+
+      animId = requestAnimationFrame(draw);
+    }
+
+    animId = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", resize); };
+  }, []);
+
   return (
     <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
 
-      {/* Base dark radial */}
+      {/* Deep base */}
       <div className="absolute inset-0" style={{
-        background: "radial-gradient(ellipse at 50% 50%, oklch(0.14 0.02 270) 0%, oklch(0.06 0.01 265) 70%)",
+        background: "radial-gradient(ellipse 120% 100% at 50% 60%, oklch(0.13 0.025 270) 0%, oklch(0.055 0.008 260) 100%)",
       }} />
 
-      {/* Drifting dual-glow layer */}
-      <div className="absolute inset-[-2px]" style={{
-        background: "radial-gradient(circle at 25% 30%, oklch(0.78 0.18 75 / 22%) 0%, transparent 40%), radial-gradient(circle at 78% 70%, oklch(0.72 0.2 290 / 22%) 0%, transparent 45%)",
-        animation: "drift1 18s ease-in-out infinite",
+      {/* Aurora orb — violet left */}
+      <div className="absolute pointer-events-none" style={{
+        width: "65vw", height: "65vw", left: "-18vw", top: "-12vw",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, oklch(0.72 0.22 290 / 20%) 0%, transparent 70%)",
+        filter: "blur(60px)",
+        animation: "drift1 24s ease-in-out infinite",
       }} />
 
-      {/* SVG Neural Mesh */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <filter id="glow-amber">
-            <feGaussianBlur stdDeviation="3" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-          <filter id="glow-violet">
-            <feGaussianBlur stdDeviation="3" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
+      {/* Aurora orb — amber right */}
+      <div className="absolute pointer-events-none" style={{
+        width: "55vw", height: "55vw", right: "-12vw", bottom: "-8vw",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, oklch(0.78 0.2 75 / 16%) 0%, transparent 70%)",
+        filter: "blur(70px)",
+        animation: "drift2 30s ease-in-out infinite",
+      }} />
 
-        {/* Background links — grey */}
-        <g stroke="oklch(0.6 0.05 260)" strokeOpacity="0.28" strokeWidth="0.5" fill="none">
-          <line x1="120" y1="180" x2="280" y2="120"/>
-          <line x1="280" y1="120" x2="460" y2="200"/>
-          <line x1="460" y1="200" x2="380" y2="360"/>
-          <line x1="380" y1="360" x2="200" y2="420"/>
-          <line x1="200" y1="420" x2="120" y2="180"/>
-          <line x1="460" y1="200" x2="620" y2="140"/>
-          <line x1="620" y1="140" x2="800" y2="220"/>
-          <line x1="800" y1="220" x2="760" y2="400"/>
-          <line x1="760" y1="400" x2="580" y2="480"/>
-          <line x1="580" y1="480" x2="380" y2="360"/>
-          <line x1="800" y1="220" x2="980" y2="160"/>
-          <line x1="980" y1="160" x2="1100" y2="280"/>
-          <line x1="1100" y1="280" x2="1040" y2="460"/>
-          <line x1="1040" y1="460" x2="860" y2="540"/>
-          <line x1="860" y1="540" x2="760" y2="400"/>
-          <line x1="280" y1="120" x2="620" y2="140"/>
-          <line x1="580" y1="480" x2="860" y2="540"/>
-          <line x1="200" y1="420" x2="380" y2="560"/>
-          <line x1="380" y1="560" x2="580" y2="480"/>
-          <line x1="120" y1="500" x2="200" y2="420"/>
-          <line x1="1040" y1="460" x2="1100" y2="600"/>
-        </g>
+      {/* Aurora orb — cyan center */}
+      <div className="absolute pointer-events-none" style={{
+        width: "45vw", height: "45vw", left: "28vw", top: "35vh",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, oklch(0.74 0.16 210 / 12%) 0%, transparent 70%)",
+        filter: "blur(50px)",
+        animation: "drift3 20s ease-in-out infinite",
+      }} />
 
-        {/* Active animated links — amber dashed */}
-        <g stroke="oklch(0.78 0.18 75)" strokeOpacity="0.7" strokeWidth="0.8" fill="none"
-           strokeDasharray="3 4" style={{ animation: "dash 5s linear infinite" }}>
-          <line x1="280" y1="120" x2="460" y2="200"/>
-          <line x1="620" y1="140" x2="800" y2="220"/>
-          <line x1="760" y1="400" x2="580" y2="480"/>
-          <line x1="980" y1="160" x2="1100" y2="280"/>
-        </g>
+      {/* Canvas particle mesh */}
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ opacity: 0.75 }} />
 
-        {/* Active animated links — violet dashed */}
-        <g stroke="oklch(0.72 0.2 290)" strokeOpacity="0.6" strokeWidth="0.8" fill="none"
-           strokeDasharray="3 4" style={{ animation: "dash 7s linear infinite reverse" }}>
-          <line x1="460" y1="200" x2="380" y2="360"/>
-          <line x1="800" y1="220" x2="760" y2="400"/>
-          <line x1="1040" y1="460" x2="860" y2="540"/>
-        </g>
-
-        {/* Amber nodes */}
-        <g fill="oklch(0.78 0.18 75)" filter="url(#glow-amber)">
-          <circle cx="280" cy="120" r="4"/>
-          <circle cx="460" cy="200" r="3"/>
-          <circle cx="620" cy="140" r="5"/>
-          <circle cx="800" cy="220" r="4"/>
-          <circle cx="580" cy="480" r="3"/>
-          <circle cx="980" cy="160" r="4"/>
-        </g>
-
-        {/* Violet nodes */}
-        <g fill="oklch(0.72 0.2 290)" filter="url(#glow-violet)">
-          <circle cx="120" cy="180" r="3"/>
-          <circle cx="380" cy="360" r="4"/>
-          <circle cx="760" cy="400" r="3.5"/>
-          <circle cx="1100" cy="280" r="4"/>
-          <circle cx="860" cy="540" r="3"/>
-          <circle cx="200" cy="420" r="3"/>
-        </g>
-
-        {/* Cyan nodes */}
-        <g fill="oklch(0.74 0.14 210)" style={{ filter: "drop-shadow(0 0 4px oklch(0.74 0.14 210 / 80%))" }}>
-          <circle cx="1040" cy="460" r="3"/>
-          <circle cx="380" cy="560" r="2.5"/>
-          <circle cx="120" cy="500" r="2.5"/>
-          <circle cx="1100" cy="600" r="3"/>
-        </g>
+      {/* Film grain */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.04 }} xmlns="http://www.w3.org/2000/svg">
+        <filter id="grain-bg">
+          <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" stitchTiles="stitch" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#grain-bg)" />
       </svg>
 
-      {/* Spectrogram bars — bottom edge accent */}
-      <div className="absolute bottom-0 left-0 right-0 h-28 flex items-flex-end gap-[2px] px-0" style={{ opacity: 0.18 }}>
-        {Array.from({ length: 120 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 min-w-[2px] rounded-t-sm"
-            style={{
-              background: "linear-gradient(180deg, oklch(0.72 0.2 290), oklch(0.78 0.18 75), oklch(0.74 0.14 210))",
-              height: `${20 + Math.sin(i * 0.4) * 15 + Math.sin(i * 0.9 + 1) * 20}%`,
-              animation: `specbar ${1.5 + (i % 7) * 0.18}s ease-in-out infinite`,
-              animationDelay: `${(i % 11) * 0.09}s`,
-              transformOrigin: "bottom",
-            }}
-          />
+      {/* Spectrogram — bottom edge */}
+      <div className="absolute bottom-0 left-0 right-0 h-20 flex items-end gap-[1.5px] px-0" style={{ opacity: 0.22 }}>
+        {Array.from({ length: 140 }).map((_, i) => (
+          <div key={i} className="flex-1 rounded-t-sm" style={{
+            background: i % 3 === 0
+              ? "oklch(0.72 0.2 290)" : i % 3 === 1
+              ? "oklch(0.78 0.18 75)" : "oklch(0.74 0.14 210)",
+            height: `${18 + Math.sin(i * 0.38) * 14 + Math.sin(i * 0.85 + 1.2) * 18}%`,
+            animation: `specbar ${1.4 + (i % 7) * 0.17}s ease-in-out infinite`,
+            animationDelay: `${(i % 13) * 0.07}s`,
+            transformOrigin: "bottom",
+          }} />
         ))}
       </div>
 
-      {/* Floating video card — decorative */}
-      <div className="absolute hidden lg:block" style={{
-        left: "4%", top: "38%",
-        width: "200px",
-        aspectRatio: "16/9",
-        borderRadius: "10px",
-        background: "linear-gradient(135deg, oklch(0.18 0.02 260), oklch(0.1 0.01 260))",
-        border: "1px solid color-mix(in oklab, oklch(0.78 0.18 75) 30%, oklch(0.22 0.008 265))",
-        boxShadow: "0 0 0 1px oklch(0.78 0.18 75 / 20%), 0 0 40px oklch(0.78 0.18 75 / 20%)",
-        overflow: "hidden",
-      }}>
-        {/* CRT scanlines */}
-        <div className="absolute inset-0" style={{
-          background: "repeating-linear-gradient(0deg, transparent 0px, transparent 2px, oklch(0.78 0.18 75 / 8%) 2px, oklch(0.78 0.18 75 / 8%) 3px)",
-        }} />
-        {/* Scan sweep */}
-        <div className="absolute left-0 right-0 h-[2px]" style={{
-          background: "linear-gradient(90deg, transparent, oklch(0.78 0.18 75 / 90%), transparent)",
-          animation: "scanCard 2.6s ease-in-out infinite",
-        }} />
-        {/* Play button */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div style={{
-            width: "28px", height: "28px", borderRadius: "50%",
-            background: "oklch(0.78 0.18 75 / 85%)",
-            display: "grid", placeItems: "center",
-          }}>
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="oklch(0.07 0 0)">
-              <path d="M3 2l5 3-5 3V2z"/>
-            </svg>
-          </div>
-        </div>
-        {/* Label */}
-        <div className="absolute bottom-2 left-2 right-2">
-          <div className="text-[9px] font-mono text-foreground/50 tracking-widest truncate">PROCESSING VIDEO</div>
-        </div>
-      </div>
-
-      {/* Edge vignette */}
-      <div className="absolute inset-0" style={{
-        background: "radial-gradient(ellipse at 50% 50%, transparent 40%, oklch(0 0 0 / 55%) 100%)",
+      {/* Vignette */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: "radial-gradient(ellipse at 50% 40%, transparent 30%, oklch(0 0 0 / 70%) 100%)",
       }} />
     </div>
   );
