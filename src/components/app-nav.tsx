@@ -56,10 +56,8 @@ export function AppNav() {
           </span>
         </Link>
 
-        {/* Right side */}
+        {/* Center nav links */}
         <div className="flex items-center gap-1">
-
-          {/* Nav links */}
           {NAV_LINKS.map(({ href, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + "/")
             return (
@@ -77,15 +75,16 @@ export function AppNav() {
               </Link>
             )
           })}
+        </div>
 
-          {/* Divider */}
-          <div className="w-px h-4 bg-border/60 mx-2" />
+        {/* Right side — streak + avatar only */}
+        <div className="flex items-center gap-2">
 
           {/* Streak */}
           <StreakDisplay />
 
           {/* Divider */}
-          <div className="w-px h-4 bg-border/60 mx-1" />
+          <div className="w-px h-4 bg-border/60" />
 
           {/* Avatar dropdown */}
           <DropdownMenu>
