@@ -2,14 +2,14 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Agentic Coding Boilerplate",
-    short_name: "Agentic",
+    name: "LearnAgent",
+    short_name: "LearnAgent",
     description:
-      "Complete agentic coding boilerplate with authentication, database, AI integration, and modern tooling",
+      "Submit a YouTube URL + what you're building — get a project-specific action plan in under 90 seconds.",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#000000",
+    background_color: "#09090b",
+    theme_color: "#f59e0b",
     icons: [
       {
         src: "/favicon.ico",

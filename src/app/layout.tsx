@@ -1,7 +1,5 @@
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
@@ -30,55 +28,24 @@ export const metadata: Metadata = {
   },
   description:
     "Submit a YouTube URL + what you're building — get a project-specific action plan in under 90 seconds.",
-  keywords: [
-    "Next.js",
-    "React",
-    "TypeScript",
-    "AI",
-    "OpenRouter",
-    "Boilerplate",
-    "Authentication",
-    "PostgreSQL",
-  ],
-  authors: [{ name: "Leon van Zyl" }],
-  creator: "Leon van Zyl",
+  keywords: ["YouTube", "learning", "action plan", "AI", "productivity", "developer tools"],
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "Agentic Coding Boilerplate",
-    title: "Agentic Coding Boilerplate",
+    siteName: "LearnAgent",
+    title: "LearnAgent",
     description:
-      "Complete agentic coding boilerplate with authentication, database, AI integration, and modern tooling",
+      "Submit a YouTube URL + what you're building — get a project-specific action plan in under 90 seconds.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Agentic Coding Boilerplate",
+    title: "LearnAgent",
     description:
-      "Complete agentic coding boilerplate with authentication, database, AI integration, and modern tooling",
+      "Submit a YouTube URL + what you're building — get a project-specific action plan in under 90 seconds.",
   },
   robots: {
     index: true,
     follow: true,
-  },
-};
-
-// JSON-LD structured data for SEO
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "Agentic Coding Boilerplate",
-  description:
-    "Complete agentic coding boilerplate with authentication, database, AI integration, and modern tooling",
-  applicationCategory: "DeveloperApplication",
-  operatingSystem: "Any",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-  author: {
-    "@type": "Person",
-    name: "Leon van Zyl",
   },
 };
 
@@ -89,12 +56,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-      </head>
+      <head />
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
       >
@@ -104,9 +66,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <SiteHeader />
           <main id="main-content">{children}</main>
-          <SiteFooter />
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>
