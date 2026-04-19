@@ -88,7 +88,7 @@ export function AppNav() {
 
           {/* Avatar dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild aria-label="Open user menu">
               <Avatar className="size-8 cursor-pointer ring-1 ring-border/40 hover:ring-primary/50 transition-all duration-150">
                 <AvatarImage
                   src={session?.user?.image || ""}
