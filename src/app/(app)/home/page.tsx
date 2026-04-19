@@ -142,7 +142,7 @@ function NeuralCanvas() {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none opacity-40"
+      className="absolute inset-0 w-full h-full pointer-events-none opacity-60"
     />
   );
 }
@@ -218,18 +218,21 @@ export default function HomePage() {
 
       {/* Deep ambient glow — amber top centre */}
       <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at 50% 0%, oklch(0.78 0.18 75 / 10%) 0%, transparent 65%)" }}
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse at 50% 0%, oklch(0.78 0.18 75 / 22%) 0%, transparent 65%)",
+          animation: "drift1 18s ease-in-out infinite",
+        }}
       />
       {/* Violet bottom-right accent */}
       <div
-        className="absolute bottom-0 right-0 w-[500px] h-[400px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at 100% 100%, oklch(0.72 0.2 290 / 6%) 0%, transparent 60%)" }}
+        className="absolute bottom-0 right-0 w-[600px] h-[500px] pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at 100% 100%, oklch(0.72 0.2 290 / 22%) 0%, transparent 55%)" }}
       />
       {/* Cyan bottom-left accent */}
       <div
-        className="absolute bottom-0 left-0 w-[400px] h-[300px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at 0% 100%, oklch(0.74 0.14 210 / 5%) 0%, transparent 60%)" }}
+        className="absolute bottom-0 left-0 w-[500px] h-[400px] pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at 0% 100%, oklch(0.74 0.14 210 / 16%) 0%, transparent 55%)" }}
       />
 
       <div className="relative max-w-xl mx-auto px-4 pt-16 pb-24">
@@ -244,18 +247,28 @@ export default function HomePage() {
             </span>
           </div>
 
-          <h1 className="font-serif italic text-5xl text-foreground mb-4 leading-tight">
+          <h1
+            className="font-serif italic text-foreground mb-5"
+            style={{
+              fontSize: "clamp(44px, 6vw, 72px)",
+              lineHeight: 0.98,
+              letterSpacing: "-0.02em",
+            }}
+          >
             Learn faster.
             <br />
-            <span
-              className="text-primary"
-              style={{ textShadow: "0 0 40px oklch(0.78 0.18 75 / 40%)" }}
+            <em
+              style={{
+                fontStyle: "normal",
+                color: "oklch(0.78 0.18 75)",
+                textShadow: "0 0 50px oklch(0.78 0.18 75 / 45%)",
+              }}
             >
               Build sooner.
-            </span>
+            </em>
           </h1>
 
-          <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
+          <p className="text-muted-foreground leading-[1.55] max-w-sm mx-auto" style={{ fontSize: "15px" }}>
             Paste any YouTube video, describe your project — get a{" "}
             <span className="text-foreground font-medium">project-specific action plan</span> in under 90 seconds.
           </p>
@@ -275,15 +288,23 @@ export default function HomePage() {
 
         {/* Form card */}
         <div
-          className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden animate-fade-up"
+          className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden animate-fade-up relative"
           style={{
-            boxShadow: "0 0 0 1px oklch(0.22 0.008 265 / 80%), 0 32px 64px oklch(0 0 0 / 50%), 0 0 80px oklch(0.78 0.18 75 / 4%)",
+            boxShadow: "0 0 0 1px oklch(0.22 0.008 265 / 80%), 0 30px 80px oklch(0 0 0 / 50%), 0 0 80px oklch(0.78 0.18 75 / 8%)",
           }}
         >
-          {/* Scan line glow at top of card */}
+          {/* Static top glow line */}
           <div
-            className="h-px w-full"
-            style={{ background: "linear-gradient(90deg, transparent, oklch(0.78 0.18 75 / 60%), transparent)" }}
+            className="h-px w-full flex-shrink-0"
+            style={{ background: "linear-gradient(90deg, transparent, oklch(0.78 0.18 75 / 70%), transparent)" }}
+          />
+          {/* Animated scan sweep */}
+          <div
+            className="absolute left-0 right-0 h-[2px] pointer-events-none z-10"
+            style={{
+              background: "linear-gradient(90deg, transparent, oklch(0.78 0.18 75 / 90%), transparent)",
+              animation: "scanCard 2.6s ease-in-out infinite",
+            }}
           />
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
