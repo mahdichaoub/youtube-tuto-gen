@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, inArray, lt } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { runPipeline } from "@/agents/orchestrator";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   // 5. Check for in-progress generation
   const ACTIVE_STATUSES = ["fetching", "analyzing", "researching", "teaching", "planning"] as const;
   const activeReports = await db
-    .select({ id: reports.id, createdAt: reports.createdAt })
+    .select({ id: reports.id, createdAt: reports.createdAt, updatedAt: reports.updatedAt })
     .from(reports)
     .where(
       and(
@@ -85,13 +85,14 @@ export async function POST(req: NextRequest) {
 
   if (activeReports.length > 0) {
     const stuck = activeReports[0]!;
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    if (new Date(stuck.createdAt) < fiveMinutesAgo) {
-      // Pipeline crashed without updating status — auto-expire and allow new submission
+    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
+    const staleAt = new Date(stuck.updatedAt ?? stuck.createdAt);
+    if (staleAt < threeMinutesAgo) {
+      // Pipeline crashed (dev restart / Vercel timeout) without setting status to failed — auto-expire
       await db
         .update(reports)
         .set({ status: "failed", updatedAt: new Date() })
-        .where(and(eq(reports.id, stuck.id), lt(reports.createdAt, fiveMinutesAgo)));
+        .where(eq(reports.id, stuck.id));
     } else {
       return NextResponse.json(
         {

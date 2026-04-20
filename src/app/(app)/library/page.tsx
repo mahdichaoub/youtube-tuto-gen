@@ -25,7 +25,7 @@ interface ReportsResponse {
 export default function LibraryPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [reports, setReports] = useState<LibraryReportCardData[]>([]);
+  const [reports, setReports] = useState<LibraryReportCardData[]>([]); // videoId included via ReportsResponse
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,12 +102,13 @@ export default function LibraryPage() {
       {loading && (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Card key={index}>
-              <CardContent className="space-y-3 px-5 py-4">
+            <div key={index} className="flex items-center gap-4 px-4 py-3 rounded-xl" style={{ border: "1px solid oklch(0.22 0.008 265)", background: "oklch(0.1 0.008 265 / 60%)" }}>
+              <div className="flex-shrink-0 rounded-lg animate-pulse bg-muted" style={{ width: 96, height: 54 }} />
+              <div className="flex-1 space-y-2">
                 <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
                 <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       )}
