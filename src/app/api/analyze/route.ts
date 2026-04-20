@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, lt } from "drizzle-orm";
 import { runPipeline } from "@/agents/orchestrator";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -71,25 +71,36 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Check for in-progress generation
+  const ACTIVE_STATUSES = ["fetching", "analyzing", "researching", "teaching", "planning"] as const;
   const activeReports = await db
-    .select({ id: reports.id })
+    .select({ id: reports.id, createdAt: reports.createdAt })
     .from(reports)
     .where(
       and(
         eq(reports.userId, session.user.id),
-        inArray(reports.status, ["fetching", "analyzing", "researching", "teaching", "planning"])
+        inArray(reports.status, ACTIVE_STATUSES)
       )
     )
     .limit(1);
 
   if (activeReports.length > 0) {
-    return NextResponse.json(
-      {
-        error: "generation_active",
-        message: "A report is already being generated. Please wait for it to complete.",
-      },
-      { status: 409 }
-    );
+    const stuck = activeReports[0]!;
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    if (new Date(stuck.createdAt) < fiveMinutesAgo) {
+      // Pipeline crashed without updating status — auto-expire and allow new submission
+      await db
+        .update(reports)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(and(eq(reports.id, stuck.id), lt(reports.createdAt, fiveMinutesAgo)));
+    } else {
+      return NextResponse.json(
+        {
+          error: "generation_active",
+          message: "A report is already being generated. Please wait for it to complete.",
+        },
+        { status: 409 }
+      );
+    }
   }
 
   // 6. Insert new report row
